@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String         @id @default(cuid())
+  name      String?
+  email     String         @unique
+  role      UserRole       @default(USER)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  studies   StudyProject[]
+  notes     Note[]
+  tags      Tag[]
+  documents Document[]
+}
+
+model BibleBook {
+  id            String       @id @default(cuid())
+  testament     Testament
+  nameZh        String
+  nameEn        String
+  abbreviation  String
+  orderIndex    Int
+  chaptersCount Int
+  verses        BibleVerse[]
+
+  @@unique([nameEn])
+  @@index([orderIndex])
+}
+
+model BibleVerse {
+  id               String            @id @default(cuid())
+  bookId           String
+  chapter          Int
+  verse            Int
+  text             String
+  translation      String            @default("CUVS")
+  book             BibleBook         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  studyPassages    StudyPassage[]
+  documentPassages DocumentPassage[]
+
+  @@unique([translation, bookId, chapter, verse])
+  @@index([bookId, chapter])
+}
+
+model StudyProject {
+  id           String         @id @default(cuid())
+  userId       String
+  title        String
+  passageLabel String
+  status       StudyStatus    @default(ACTIVE)
+  summary      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passages     StudyPassage[]
+  notes        Note[]
+
+  @@index([userId, updatedAt])
+}
+
+model StudyPassage {
+  id             String       @id @default(cuid())
+  studyProjectId String
+  bibleVerseId   String
+  sortOrder      Int
+  studyProject   StudyProject @relation(fields: [studyProjectId], references: [id], onDelete: Cascade)
+  bibleVerse     BibleVerse   @relation(fields: [bibleVerseId], references: [id], onDelete: Cascade)
+
+  @@unique([studyProjectId, bibleVerseId])
+  @@index([bibleVerseId])
+}
+
+model Note {
+  id             String      @id @default(cuid())
+  userId         String
+  studyProjectId String?
+  type           NoteType
+  title          String
+  slug           String
+  markdownBody   String
+  excerpt        String?
+  source         NoteSource  @default(INTERNAL)
+  obsidianPath   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyProject   StudyProject? @relation(fields: [studyProjectId], references: [id], onDelete: SetNull)
+  tags           NoteTag[]
+  outgoingLinks  NoteLink[]  @relation("OutgoingNoteLinks")
+  incomingLinks  NoteLink[]  @relation("IncomingNoteLinks")
+
+  @@unique([userId, slug])
+  @@index([userId, type, updatedAt])
+}
+
+model Tag {
+  id           String        @id @default(cuid())
+  userId       String?
+  name         String
+  slug         String
+  type         TagType       @default(CUSTOM)
+  createdAt    DateTime      @default(now())
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteTags     NoteTag[]
+  documentTags DocumentTag[]
+
+  @@unique([userId, slug])
+}
+
+model NoteTag {
+  id     String @id @default(cuid())
+  noteId String
+  tagId  String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, tagId])
+}
+
+model NoteLink {
+  id          String   @id @default(cuid())
+  fromNoteId  String
+  toNoteId    String?
+  targetTitle String
+  linkType    LinkType @default(OBSIDIAN_WIKILINK)
+  createdAt   DateTime @default(now())
+  fromNote    Note     @relation("OutgoingNoteLinks", fields: [fromNoteId], references: [id], onDelete: Cascade)
+  toNote      Note?    @relation("IncomingNoteLinks", fields: [toNoteId], references: [id], onDelete: SetNull)
+
+  @@index([fromNoteId])
+  @@index([toNoteId])
+}
+
+model Document {
+  id               String            @id @default(cuid())
+  userId           String
+  title            String
+  originalFilename String
+  fileType         String
+  storagePath      String?
+  extractedText    String?
+  excerpt          String?
+  source           DocumentSource    @default(UPLOAD)
+  visibility       DocumentVisibility @default(PRIVATE)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags             DocumentTag[]
+  passages         DocumentPassage[]
+
+  @@index([userId, updatedAt])
+}
+
+model DocumentTag {
+  id         String   @id @default(cuid())
+  documentId String
+  tagId      String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tagId])
+}
+
+model DocumentPassage {
+  id             String     @id @default(cuid())
+  documentId     String
+  bibleVerseId   String
+  referenceLabel String
+  confidence     Float      @default(1)
+  createdAt      DateTime   @default(now())
+  document       Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  bibleVerse     BibleVerse @relation(fields: [bibleVerseId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([bibleVerseId])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum Testament {
+  OLD
+  NEW
+}
+
+enum StudyStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum NoteType {
+  PASSAGE
+  TOPIC
+  QUESTION
+  SERMON
+}
+
+enum NoteSource {
+  INTERNAL
+  OBSIDIAN_IMPORT
+}
+
+enum TagType {
+  TOPIC
+  BOOK
+  CUSTOM
+  DOCTRINE
+}
+
+enum LinkType {
+  OBSIDIAN_WIKILINK
+  MANUAL
+}
+
+enum DocumentSource {
+  UPLOAD
+  OBSIDIAN_IMPORT
+}
+
+enum DocumentVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC_SUBMISSION
+}
