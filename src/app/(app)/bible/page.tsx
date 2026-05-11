@@ -1,9 +1,32 @@
 import Link from "next/link";
 import { Bookmark, NotebookPen } from "lucide-react";
 import { Button, PageHeader, Panel, Tag } from "@/components/ui";
-import { bibleBooks, john3 } from "@/lib/sample-data";
+import { getBibleChapter, getBibleManifest } from "@/lib/bible-files";
 
-export default function BiblePage() {
+export default async function BiblePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    version?: string;
+    book?: string;
+    chapter?: string;
+  }>;
+}) {
+  const params = await searchParams;
+  const selectedVersion = params?.version ?? "chinese_union_simp";
+  const selectedBook = params?.book ?? "John";
+  const selectedChapter = Number(params?.chapter ?? 3);
+  const versions = getBibleManifest();
+  const { bible, book, chapter } = getBibleChapter({
+    versionCode: selectedVersion,
+    bookCode: selectedBook,
+    chapter: selectedChapter,
+  });
+  const books = bible?.books ?? [];
+  const verses = chapter?.verses ?? [];
+  const safeChapter = chapter?.chapter ?? selectedChapter;
+  const selectedPassageLabel = `${book?.name ?? "约翰福音"} ${safeChapter}`;
+
   return (
     <div>
       <PageHeader
@@ -22,19 +45,20 @@ export default function BiblePage() {
       <div className="grid gap-5 lg:grid-cols-[220px_1fr_280px]">
         <Panel className="p-4">
           <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">经卷目录</h2>
-          <div className="space-y-1">
-            {bibleBooks.map((book) => (
-                <button
-                  key={book.name}
+          <div className="max-h-[720px] space-y-1 overflow-auto pr-1">
+            {books.map((item) => (
+                <Link
+                  key={item.code}
+                  href={`/bible?version=${selectedVersion}&book=${item.code}&chapter=1`}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                    book.name === "约翰福音"
+                    item.code === selectedBook
                     ? "bg-[var(--foreground)] font-semibold text-white"
                     : "text-[var(--muted)] hover:bg-[var(--panel-soft)]"
                 }`}
               >
-                <span>{book.name}</span>
-                <span>{book.chapters}</span>
-              </button>
+                <span>{item.name}</span>
+                <span>{item.chapters.length}</span>
+              </Link>
             ))}
           </div>
         </Panel>
@@ -42,27 +66,47 @@ export default function BiblePage() {
         <Panel className="p-5">
           <div className="mb-5 flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold">约翰福音 第 3 章</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">当前译本：中文和合本示例文本</p>
+              <h2 className="text-xl font-semibold">
+                {book?.name ?? "约翰福音"} 第 {safeChapter} 章
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                当前译本：{bible?.metadata.name ?? "未处理圣经数据"}
+              </p>
             </div>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((chapter) => (
-                <button
-                  key={chapter}
-                  className={`size-9 rounded-md text-sm font-semibold ${
-                    chapter === 3
-                      ? "bg-[var(--accent)] text-white"
-                      : "border border-[var(--line)] bg-white text-[var(--muted)]"
+            <div className="flex flex-wrap gap-2">
+              {versions.map((version) => (
+                <Link
+                  key={version.code}
+                  href={`/bible?version=${version.code}&book=${selectedBook}&chapter=${safeChapter}`}
+                  className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                    version.code === selectedVersion
+                      ? "border-[var(--foreground)] bg-[var(--foreground)] text-white"
+                      : "border-[var(--line)] text-[var(--muted)]"
                   }`}
                 >
-                  {chapter}
-                </button>
+                  {version.shortName}
+                </Link>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {book?.chapters.map((item) => (
+                <Link
+                  key={item.chapter}
+                  href={`/bible?version=${selectedVersion}&book=${selectedBook}&chapter=${item.chapter}`}
+                  className={`size-9 rounded-md text-sm font-semibold ${
+                    item.chapter === safeChapter
+                      ? "bg-[var(--accent)] text-white"
+                      : "border border-[var(--line)] bg-white text-[var(--muted)]"
+                  } inline-flex items-center justify-center`}
+                >
+                  {item.chapter}
+                </Link>
               ))}
             </div>
           </div>
 
           <div className="space-y-3">
-            {john3.map((item) => (
+            {verses.map((item) => (
               <p
                 key={item.verse}
                 className={`rounded-md border-l-4 p-3 text-base leading-8 ${
@@ -83,9 +127,9 @@ export default function BiblePage() {
         <Panel className="p-4">
           <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">当前选择</h2>
           <div className="rounded-md border border-[var(--line)] bg-[var(--background)] p-3">
-            <p className="font-semibold">约翰福音 3:16-21</p>
+            <p className="font-semibold">{selectedPassageLabel}</p>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              适合建立一篇经文研读笔记，围绕救恩、信心、永生与光的主题观察。
+              已读取本地处理后的 {bible?.metadata.shortName ?? "圣经"} 数据。可继续选择经卷、章节或译本，并进入研读页整理观察、解释和应用。
             </p>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">

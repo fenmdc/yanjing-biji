@@ -27,3 +27,9 @@ pnpm-debug.log*
 
 # typescript
 *.tsbuildinfo
+
+# local Bible data imports
+/data/bibles/inbox/**
+/data/bibles/processed/**
+!/data/bibles/inbox/.gitkeep
+!/data/bibles/processed/.gitkeep

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bible:validate": "node scripts/validate-bible-json.mjs",
+    "bible:inspect": "node scripts/inspect-bibles.mjs",
+    "bible:process": "node scripts/process-bibles.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",
