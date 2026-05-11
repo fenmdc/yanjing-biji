@@ -1,4 +1,5 @@
 import { studyMarkdown } from "@/lib/sample-data";
+import { getStudyNoteId, saveLocalNote } from "@/lib/local-notes";
 
 export const STUDY_STORAGE_KEY = "yanjing-biji:john-3-16-study";
 export const STUDY_SNIPPETS_KEY = "yanjing-biji:study-source-snippets";
@@ -14,11 +15,34 @@ export type StudySourceSnippet = {
 
 export function getStoredStudyMarkdown() {
   if (typeof window === "undefined") return studyMarkdown;
+  const notesRaw = window.localStorage.getItem("yanjing-biji:local-notes");
+  if (notesRaw) {
+    try {
+      const notes = JSON.parse(notesRaw);
+      const studyNote = Array.isArray(notes)
+        ? notes.find((note) => note?.id === getStudyNoteId())
+        : undefined;
+      if (typeof studyNote?.body === "string") return studyNote.body;
+    } catch {
+      return window.localStorage.getItem(STUDY_STORAGE_KEY) ?? studyMarkdown;
+    }
+  }
+
   return window.localStorage.getItem(STUDY_STORAGE_KEY) ?? studyMarkdown;
 }
 
 export function saveStudyMarkdown(markdown: string) {
   window.localStorage.setItem(STUDY_STORAGE_KEY, markdown);
+  saveLocalNote({
+    id: getStudyNoteId(),
+    title: "约翰福音 3:16-21 研读",
+    type: "经文笔记",
+    tags: ["救恩", "信心", "永生"],
+    excerpt: "约翰福音 3:16-21 研读笔记。",
+    body: markdown,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export function getStudySourceSnippets() {
