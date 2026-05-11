@@ -15,12 +15,18 @@ export function MarkdownEditor({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const initialValueRef = useRef(value);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (!hostRef.current || viewRef.current) return;
 
     const state = EditorState.create({
-      doc: value,
+      doc: initialValueRef.current,
       extensions: [
         lineNumbers(),
         history(),
@@ -28,7 +34,7 @@ export function MarkdownEditor({
         keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) onChange?.(update.state.doc.toString());
+          if (update.docChanged) onChangeRef.current?.(update.state.doc.toString());
         }),
         EditorView.theme({
           "&": {
@@ -70,7 +76,23 @@ export function MarkdownEditor({
       viewRef.current?.destroy();
       viewRef.current = null;
     };
-  }, [onChange, value]);
+  }, []);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const currentValue = view.state.doc.toString();
+    if (currentValue === value) return;
+
+    view.dispatch({
+      changes: {
+        from: 0,
+        to: currentValue.length,
+        insert: value,
+      },
+    });
+  }, [value]);
 
   return <div ref={hostRef} className="overflow-hidden rounded-md border border-[var(--line)]" />;
 }

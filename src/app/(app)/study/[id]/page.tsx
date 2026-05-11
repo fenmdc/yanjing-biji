@@ -1,24 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Download, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { Button, PageHeader, Panel, Tag } from "@/components/ui";
+import { PageHeader, Panel, Tag } from "@/components/ui";
 import { john3, resources, studyMarkdown } from "@/lib/sample-data";
 import {
   downloadMarkdown,
+  getStudySourceSnippets,
   getStoredStudyMarkdown,
+  removeStudySourceSnippet,
   saveStudyMarkdown,
+  type StudySourceSnippet,
 } from "@/lib/study-storage";
 
 export default function StudyPage() {
   const [body, setBody] = useState(studyMarkdown);
   const [savedAt, setSavedAt] = useState("尚未保存");
+  const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
   const wordCount = useMemo(() => body.replace(/\s/g, "").length, [body]);
 
   useEffect(() => {
     queueMicrotask(() => {
       setBody(getStoredStudyMarkdown());
+      setSnippets(getStudySourceSnippets());
       const lastSaved = window.localStorage.getItem("yanjing-biji:john-3-16-saved-at");
       if (lastSaved) setSavedAt(lastSaved);
     });
@@ -34,6 +40,21 @@ export default function StudyPage() {
     saveStudyMarkdown(body);
     window.localStorage.setItem("yanjing-biji:john-3-16-saved-at", savedTime);
     setSavedAt(savedTime);
+  }
+
+  function handleInsertSnippet(snippet: StudySourceSnippet) {
+    const markdownBlock = [
+      "",
+      `> ${snippet.reference}（${snippet.versionShortName}）`,
+      `> ${snippet.text}`,
+      "",
+      "观察：",
+      "- ",
+    ].join("\n");
+
+    setBody((current) => `${current.trimEnd()}\n${markdownBlock}`);
+    removeStudySourceSnippet(snippet.id);
+    setSnippets(getStudySourceSnippets());
   }
 
   return (
@@ -131,6 +152,39 @@ export default function StudyPage() {
                 <p className="mt-1 text-xs text-[var(--muted)]">{resource.passage}</p>
               </div>
             ))}
+          </div>
+
+          <h2 className="mb-3 mt-6 text-sm font-semibold text-[var(--muted)]">研读篮</h2>
+          <div className="space-y-3">
+            {snippets.length > 0 ? (
+              snippets.map((snippet) => (
+                <div
+                  key={snippet.id}
+                  className="rounded-md border border-[var(--line)] bg-[var(--background)] p-3"
+                >
+                  <Link
+                    href={snippet.href}
+                    className="text-sm font-semibold text-[var(--foreground)] transition hover:text-[var(--accent)]"
+                  >
+                    {snippet.reference}
+                  </Link>
+                  <p className="mt-1 line-clamp-3 text-xs leading-5 text-[var(--muted)]">
+                    {snippet.text}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertSnippet(snippet)}
+                    className="mt-3 h-8 rounded-md bg-[var(--foreground)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
+                  >
+                    插入笔记
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--line)] p-3 text-xs leading-5 text-[var(--muted)]">
+                在搜索页把经文加入研读后，会显示在这里。
+              </div>
+            )}
           </div>
         </Panel>
       </div>

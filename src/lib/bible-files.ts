@@ -36,6 +36,17 @@ type ProcessedBible = {
   }>;
 };
 
+export type BibleSearchResult = {
+  versionCode: string;
+  versionShortName: string;
+  bookCode: string;
+  bookName: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  reference: string;
+};
+
 const processedDir = path.join(process.cwd(), "data/bibles/processed");
 
 export function getBibleManifest(): BibleManifestItem[] {
@@ -73,4 +84,45 @@ export function getBibleChapter({
     book,
     chapter: selectedChapter,
   };
+}
+
+export function searchBible({
+  query,
+  versionCode = "chinese_union_simp",
+  limit = 30,
+}: {
+  query: string;
+  versionCode?: string;
+  limit?: number;
+}): BibleSearchResult[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [];
+
+  const bible = getBibleVersion(versionCode);
+  if (!bible) return [];
+
+  const results: BibleSearchResult[] = [];
+
+  for (const book of bible.books) {
+    for (const chapter of book.chapters) {
+      for (const verse of chapter.verses) {
+        if (!verse.text.toLocaleLowerCase().includes(normalizedQuery)) continue;
+
+        results.push({
+          versionCode: bible.metadata.code,
+          versionShortName: bible.metadata.shortName,
+          bookCode: book.code,
+          bookName: book.name,
+          chapter: chapter.chapter,
+          verse: verse.verse,
+          text: verse.text,
+          reference: `${book.name} ${chapter.chapter}:${verse.verse}`,
+        });
+
+        if (results.length >= limit) return results;
+      }
+    }
+  }
+
+  return results;
 }

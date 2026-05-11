@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { BookOpen, FileText, NotebookPen, Search } from "lucide-react";
+import { ScriptureSaveButton } from "@/components/scripture-save-button";
 import { PageHeader, Panel, Tag } from "@/components/ui";
+import { getBibleManifest, searchBible } from "@/lib/bible-files";
 
-const results = [
+const sampleResults = [
   {
     icon: BookOpen,
     type: "经文",
@@ -29,7 +31,24 @@ const results = [
   },
 ];
 
-export default function SearchPage() {
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    q?: string;
+    version?: string;
+  }>;
+}) {
+  const params = await searchParams;
+  const query = params?.q?.trim() || "永生";
+  const selectedVersion = params?.version ?? "chinese_union_simp";
+  const versions = getBibleManifest();
+  const bibleResults = searchBible({
+    query,
+    versionCode: selectedVersion,
+    limit: 25,
+  });
+
   return (
     <div>
       <PageHeader
@@ -38,14 +57,34 @@ export default function SearchPage() {
       />
 
       <Panel className="mb-5 p-3">
-        <div className="flex h-12 items-center gap-3 rounded-md bg-[var(--background)] px-4">
+        <form
+          action="/search"
+          className="grid gap-3 rounded-md bg-[var(--background)] p-3 md:grid-cols-[1fr_180px_auto]"
+        >
+          <div className="flex h-11 items-center gap-3 rounded-md border border-[var(--line)] bg-white px-3">
           <Search size={18} className="text-[var(--accent)]" />
           <input
+            name="q"
             className="h-full flex-1 bg-transparent text-sm outline-none"
-            defaultValue="永生"
+            defaultValue={query}
             aria-label="搜索"
           />
-        </div>
+          </div>
+          <select
+            name="version"
+            defaultValue={selectedVersion}
+            className="h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm"
+          >
+            {versions.map((version) => (
+              <option key={version.code} value={version.code}>
+                {version.shortName}
+              </option>
+            ))}
+          </select>
+          <button className="h-11 rounded-md bg-[var(--foreground)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--accent)]">
+            搜索
+          </button>
+        </form>
       </Panel>
 
       <div className="mb-5 flex flex-wrap gap-2">
@@ -63,8 +102,64 @@ export default function SearchPage() {
         ))}
       </div>
 
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold">经文结果</h2>
+        <p className="text-sm text-[var(--muted)]">
+          {bibleResults.length > 0
+            ? `找到 ${bibleResults.length} 条，显示前 25 条`
+            : "没有找到匹配经文"}
+        </p>
+      </div>
+
+      <div className="mb-8 grid gap-4">
+        {bibleResults.map((result) => (
+          <Panel
+            key={`${result.versionCode}-${result.bookCode}-${result.chapter}-${result.verse}`}
+            className="p-5 transition hover:-translate-y-0.5 hover:border-[var(--accent)]"
+          >
+            <div className="flex gap-4">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-[var(--panel-soft)] text-[var(--accent)]">
+                <BookOpen size={19} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-[var(--muted)]">
+                  经文 · {result.versionShortName}
+                </p>
+                <h2 className="mt-1 text-lg font-semibold">{result.reference}</h2>
+                <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{result.text}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Tag>{result.bookName}</Tag>
+                  <Tag>{result.versionShortName}</Tag>
+                  <Link
+                    href={`/bible?version=${result.versionCode}&book=${result.bookCode}&chapter=${result.chapter}`}
+                    className="inline-flex h-9 items-center justify-center rounded-md bg-[var(--foreground)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
+                  >
+                    打开章节
+                  </Link>
+                  <ScriptureSaveButton
+                    snippet={{
+                      id: `${result.versionCode}-${result.bookCode}-${result.chapter}-${result.verse}`,
+                      reference: result.reference,
+                      text: result.text,
+                      versionCode: result.versionCode,
+                      versionShortName: result.versionShortName,
+                      href: `/bible?version=${result.versionCode}&book=${result.bookCode}&chapter=${result.chapter}`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </Panel>
+        ))}
+      </div>
+
+      <div className="mb-4 flex items-center justify-between border-t border-[var(--line)] pt-5">
+        <h2 className="text-base font-semibold">笔记与资料示例</h2>
+        <p className="text-sm text-[var(--muted)]">下一步会接入真实笔记库</p>
+      </div>
+
       <div className="grid gap-4">
-        {results.map((result) => {
+        {sampleResults.map((result) => {
           const Icon = result.icon;
           return (
             <Link href={result.href} key={result.title}>
