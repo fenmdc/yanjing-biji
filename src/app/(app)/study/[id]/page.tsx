@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { Download, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
@@ -9,36 +10,76 @@ import { john3, resources, studyMarkdown } from "@/lib/sample-data";
 import {
   downloadMarkdown,
   getStudySourceSnippets,
-  getStoredStudyMarkdown,
   removeStudySourceSnippet,
-  saveStudyMarkdown,
   type StudySourceSnippet,
 } from "@/lib/study-storage";
 
 export default function StudyPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [body, setBody] = useState(studyMarkdown);
   const [savedAt, setSavedAt] = useState("尚未保存");
   const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const wordCount = useMemo(() => body.replace(/\s/g, "").length, [body]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setBody(getStoredStudyMarkdown());
-      setSnippets(getStudySourceSnippets());
-      const lastSaved = window.localStorage.getItem("yanjing-biji:john-3-16-saved-at");
-      if (lastSaved) setSavedAt(lastSaved);
-    });
-  }, []);
+    let cancelled = false;
 
-  function handleSave() {
+    async function loadStudy() {
+      const response = await fetch(`/api/studies/${params.id}`);
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      const payload = await response.json();
+      if (!cancelled && typeof payload.markdown === "string") {
+        setBody(payload.markdown);
+        if (payload.note?.updatedAt) setSavedAt(new Date(payload.note.updatedAt).toLocaleTimeString("zh-CN"));
+      }
+    }
+
+    loadStudy().catch(() => {
+      if (!cancelled) setError("读取研读笔记失败，当前显示初始模板。");
+    });
+
+    queueMicrotask(() => {
+      setSnippets(getStudySourceSnippets());
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, router]);
+
+  async function handleSave() {
     const savedTime = new Intl.DateTimeFormat("zh-CN", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
     }).format(new Date());
 
-    saveStudyMarkdown(body);
-    window.localStorage.setItem("yanjing-biji:john-3-16-saved-at", savedTime);
+    setSaving(true);
+    setError("");
+    const response = await fetch(`/api/studies/${params.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown: body }),
+    });
+    setSaving(false);
+
+    if (response.status === 401) {
+      router.push("/login");
+      return;
+    }
+
+    if (!response.ok) {
+      setError("保存失败，请稍后再试。");
+      return;
+    }
+
     setSavedAt(savedTime);
   }
 
@@ -66,10 +107,11 @@ export default function StudyPage() {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
+              disabled={saving}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)]"
             >
               <Save size={17} />
-              保存
+              {saving ? "保存中..." : "保存"}
             </button>
             <button
               onClick={() => downloadMarkdown("约翰福音 3.16-21 研读.md", body)}
@@ -81,6 +123,12 @@ export default function StudyPage() {
           </div>
         }
       />
+
+      {error ? (
+        <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[260px_1fr_300px]">
         <Panel className="p-4">

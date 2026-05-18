@@ -4,7 +4,8 @@
 
 ## 初步可用能力
 
-- 研读页支持浏览器本地保存，刷新后保留当前 Markdown。
+- 支持邮箱注册、登录、退出，并用服务端会话保护应用页面。
+- 笔记库和研读页已接入 PostgreSQL，按账户保存 Markdown 内容。
 - 研读页支持直接导出当前 Markdown 文件。
 - Obsidian 页面支持导出 zip，并优先使用已保存的研读内容。
 - 圣经阅读页已读取本地处理后的真实圣经数据，支持通过 URL 切换译本、经卷和章节。
@@ -27,14 +28,31 @@
 - Tailwind CSS
 - CodeMirror Markdown 编辑器
 - Prisma 数据模型
-- PostgreSQL 预期数据库
+- PostgreSQL 数据库
+
+## 本地启动
+
+准备 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+确认 PostgreSQL 已启动，并且 `DATABASE_URL` 指向可用数据库。然后执行：
+
+```bash
+npx prisma migrate dev
+npm run dev
+```
+
+打开 `/login` 创建个人账户后，笔记与研读内容会保存到数据库。
 
 ## 下一步
 
-1. 接入真实数据库与登录。
-2. 导入完整圣经译本文本。
-3. 将当前示例数据替换成用户自己的研读、笔记和资料。
-4. 完成 Markdown 导入导出与搜索索引。
+1. 将资料库接入数据库与文件上传。
+2. 导入完整圣经译本文本到数据库，而不只是读取本地 processed JSON。
+3. 将仪表盘、搜索页和 Obsidian 导出接入真实账户数据。
+4. 完成 Markdown 导入、双链解析与搜索索引。
 
 ## 圣经数据
 

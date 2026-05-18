@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { Edit3, FileText, Search } from "lucide-react";
 import { PageHeader, Panel, Tag } from "@/components/ui";
 import {
-  createLocalNote,
   formatNoteDate,
-  getLocalNotes,
   type LocalNote,
 } from "@/lib/local-notes";
 
@@ -19,10 +17,34 @@ export default function NotesPage() {
   const [notes, setNotes] = useState<LocalNote[]>([]);
   const [selectedType, setSelectedType] = useState("全部");
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => setNotes(getLocalNotes()));
-  }, []);
+    let cancelled = false;
+
+    async function loadNotes() {
+      const response = await fetch("/api/notes");
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      const payload = await response.json();
+      if (!cancelled) {
+        setNotes(Array.isArray(payload.notes) ? payload.notes : []);
+        setLoading(false);
+      }
+    }
+
+    loadNotes().catch(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -40,24 +62,34 @@ export default function NotesPage() {
     });
   }, [notes, query, selectedType]);
 
-  function handleCreateNote() {
-    const note = createLocalNote();
-    router.push(`/notes/${note.id}`);
+  async function handleCreateNote() {
+    setCreating(true);
+    const response = await fetch("/api/notes", { method: "POST" });
+    const payload = await response.json().catch(() => ({}));
+    setCreating(false);
+
+    if (response.status === 401) {
+      router.push("/login");
+      return;
+    }
+
+    if (payload.note?.id) router.push(`/notes/${payload.note.id}`);
   }
 
   return (
     <div>
       <PageHeader
         title="笔记库"
-        description="统一管理经文笔记、主题笔记、问题笔记与讲章草稿，当前优先保存到本机浏览器。"
+        description="统一管理经文笔记、主题笔记、问题笔记与讲章草稿，已保存到你的账户数据库。"
         action={
           <button
             type="button"
             onClick={handleCreateNote}
+            disabled={creating}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--foreground)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
           >
             <Edit3 size={17} />
-            新建笔记
+            {creating ? "创建中..." : "新建笔记"}
           </button>
         }
       />
@@ -94,12 +126,18 @@ export default function NotesPage() {
           ))}
 
           <div className="mt-5 rounded-md border border-dashed border-[var(--line)] p-3 text-xs leading-5 text-[var(--muted)]">
-            本地保存适合第一版使用。后续接入账号后，可迁移为云端同步。
+            当前笔记按账户保存。换设备时只要连接同一个数据库和账户即可继续使用。
           </div>
         </Panel>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {filteredNotes.map((note) => (
+          {loading ? (
+            <Panel className="p-6 text-sm leading-6 text-[var(--muted)] md:col-span-2">
+              正在读取你的笔记...
+            </Panel>
+          ) : null}
+
+          {!loading && filteredNotes.map((note) => (
             <Link href={`/notes/${note.id}`} key={note.id}>
               <Panel className="h-full p-5 transition hover:-translate-y-0.5 hover:border-[var(--accent)]">
                 <div className="mb-4 flex items-center justify-between gap-3">
@@ -124,7 +162,7 @@ export default function NotesPage() {
             </Link>
           ))}
 
-          {filteredNotes.length === 0 ? (
+          {!loading && filteredNotes.length === 0 ? (
             <Panel className="p-6 text-sm leading-6 text-[var(--muted)] md:col-span-2">
               没有找到匹配的笔记。可以换一个关键词，或新建一篇笔记。
             </Panel>

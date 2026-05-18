@@ -2,11 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookMarked, BookOpen, Database, Home, NotebookPen, Search, ScrollText } from "lucide-react";
+import {
+  BookMarked,
+  BookOpen,
+  Database,
+  Home,
+  LogOut,
+  NotebookPen,
+  Search,
+  ScrollText,
+} from "lucide-react";
 import { navItems } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: {
+    name: string | null;
+    email: string;
+  };
+}) {
   const pathname = usePathname();
   const mobileItems = [
     { href: "/dashboard", label: "工作台", icon: Home },
@@ -52,11 +70,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/search"
-            className="ml-auto hidden h-10 w-64 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white md:flex"
+            className="ml-auto hidden h-10 w-64 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white xl:flex"
           >
             <Search size={16} />
             搜索经文、笔记、资料
           </Link>
+
+          <div className="ml-auto hidden min-w-0 items-center gap-3 md:flex xl:ml-0">
+            <div className="min-w-0 text-right">
+              <p className="truncate text-xs font-semibold text-white">
+                {user.name || user.email}
+              </p>
+              <p className="truncate text-[11px] text-zinc-400">已登录</p>
+            </div>
+            <form action="/logout" method="post">
+              <button
+                type="submit"
+                className="h-9 rounded-md border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+              >
+                退出
+              </button>
+            </form>
+          </div>
 
           <Link
             href="/library"
@@ -65,6 +100,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Database size={19} />
           </Link>
+
+          <form action="/logout" method="post" className="md:hidden">
+            <button
+              type="submit"
+              className="flex size-10 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-white"
+              aria-label="退出登录"
+            >
+              <LogOut size={18} />
+            </button>
+          </form>
         </div>
       </header>
 
