@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Download, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
-import { john3, resources, studyMarkdown } from "@/lib/sample-data";
+import { resources, studyMarkdown } from "@/lib/sample-data";
 import {
   downloadMarkdown,
   getStudySourceSnippets,
@@ -14,10 +14,29 @@ import {
   type StudySourceSnippet,
 } from "@/lib/study-storage";
 
+type StudyView = {
+  id: string;
+  title: string;
+  passageLabel: string;
+};
+
+type StudyContext = {
+  versionShortName: string;
+  bookName: string;
+  chapter: number;
+  verses: Array<{ verse: number; text: string }>;
+} | null;
+
 export default function StudyPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [body, setBody] = useState(studyMarkdown);
+  const [study, setStudy] = useState<StudyView>({
+    id: params.id,
+    title: "研读笔记",
+    passageLabel: "经文研读",
+  });
+  const [context, setContext] = useState<StudyContext>(null);
   const [savedAt, setSavedAt] = useState("尚未保存");
   const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
   const [saving, setSaving] = useState(false);
@@ -36,8 +55,18 @@ export default function StudyPage() {
 
       const payload = await response.json();
       if (!cancelled && typeof payload.markdown === "string") {
+        if (payload.study) {
+          setStudy({
+            id: payload.study.id,
+            title: payload.study.title,
+            passageLabel: payload.study.passageLabel,
+          });
+        }
+        setContext(payload.context ?? null);
         setBody(payload.markdown);
-        if (payload.note?.updatedAt) setSavedAt(new Date(payload.note.updatedAt).toLocaleTimeString("zh-CN"));
+        if (payload.note?.updatedAt) {
+          setSavedAt(new Date(payload.note.updatedAt).toLocaleTimeString("zh-CN"));
+        }
       }
     }
 
@@ -101,8 +130,8 @@ export default function StudyPage() {
   return (
     <div>
       <PageHeader
-        title="约翰福音 3:16-21 研读"
-        description="核心研读页：左边看上下文，中间写 Markdown，右边整理主题、双链与资料。"
+        title={study.title}
+        description={`${study.passageLabel} · 左边看上下文，中间写 Markdown，右边整理主题、双链与资料。`}
         action={
           <div className="flex gap-2">
             <button
@@ -114,7 +143,7 @@ export default function StudyPage() {
               {saving ? "保存中..." : "保存"}
             </button>
             <button
-              onClick={() => downloadMarkdown("约翰福音 3.16-21 研读.md", body)}
+              onClick={() => downloadMarkdown(`${study.title}.md`, body)}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--foreground)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
             >
               <Download size={17} />
@@ -134,24 +163,28 @@ export default function StudyPage() {
         <Panel className="p-4">
           <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">经文上下文</h2>
           <div className="space-y-2">
-            {john3.map((item) => (
-              <p
-                key={item.verse}
-                className={`rounded-md border-l-4 p-2 text-sm leading-6 ${
-                  item.verse >= 16 && item.verse <= 21
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                    : "border-transparent text-[var(--muted)]"
-                }`}
-              >
-                <span className="mr-1 font-semibold">{item.verse}</span>
-                {item.text}
-              </p>
-            ))}
+            {context ? (
+              context.verses.map((item) => (
+                <p
+                  key={item.verse}
+                  className="rounded-md border-l-4 border-transparent p-2 text-sm leading-6 text-[var(--muted)] hover:bg-[var(--panel-soft)]"
+                >
+                  <span className="mr-1 font-semibold text-[var(--accent)]">{item.verse}</span>
+                  {item.text}
+                </p>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--line)] p-3 text-sm leading-6 text-[var(--muted)]">
+                这个研读项目还没有绑定经文章节。
+              </div>
+            )}
           </div>
 
           <h2 className="mb-3 mt-5 text-sm font-semibold text-[var(--muted)]">关键词</h2>
           <div className="flex flex-wrap gap-2">
-            {["神爱", "世人", "信", "永生", "光", "定罪"].map((tag) => (
+            {[context?.bookName, "研读", context?.versionShortName, "观察", "应用"]
+              .filter(Boolean)
+              .map((tag) => (
               <Tag key={tag}>{tag}</Tag>
             ))}
           </div>

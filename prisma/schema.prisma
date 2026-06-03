@@ -67,6 +67,9 @@ model StudyProject {
   userId       String
   title        String
   passageLabel String
+  versionCode  String?
+  bookCode     String?
+  chapter      Int?
   status       StudyStatus    @default(ACTIVE)
   summary      String?
   createdAt    DateTime       @default(now())
