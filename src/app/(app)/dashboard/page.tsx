@@ -66,7 +66,7 @@ export default async function DashboardPage() {
     {
       title: "资料整理",
       body: `${documentCount} 个`,
-      meta: "资料库持久化与上传会在下一阶段接入",
+      meta: "书摘、讲章材料和 Markdown 摘录已保存到资料库",
       icon: Library,
       href: "/library",
     },

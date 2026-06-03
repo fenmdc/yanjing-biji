@@ -239,7 +239,7 @@ export default async function SearchPage({
           meta={documentResults.length > 0 ? `找到 ${documentResults.length} 个` : "没有匹配资料"}
         >
           {documentResults.map((document) => (
-            <Link href="/library" key={document.id}>
+            <Link href={`/library?doc=${document.id}`} key={document.id}>
               <Panel className="p-5 transition hover:-translate-y-0.5 hover:border-[var(--accent)]">
                 <div className="flex gap-4">
                   <ResultIcon icon={Library} />
