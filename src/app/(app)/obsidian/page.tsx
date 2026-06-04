@@ -1,48 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileUp } from "lucide-react";
-import { Button, PageHeader, Panel } from "@/components/ui";
-import { studyMarkdown } from "@/lib/sample-data";
-import { getStoredStudyMarkdown } from "@/lib/study-storage";
+import { FileUp } from "lucide-react";
+import { ObsidianExportButton } from "@/components/obsidian-export-button";
+import { PageHeader, Panel } from "@/components/ui";
 
 export default function ObsidianPage() {
   const [ready, setReady] = useState(false);
-
-  async function exportMarkdown() {
-    const JSZip = (await import("jszip")).default;
-    const zip = new JSZip();
-
-    zip.file("Bible Notes/John 3.16-21.md", getStoredStudyMarkdown());
-    zip.file(
-      "Topics/恩典.md",
-      `---
-type: topic
-tags:
-  - 救恩
-  - 神学主题
----
-
-# 恩典
-
-相关经文：约翰福音 3:16
-
-恩典不是人配得的奖赏，而是神在基督里主动赐下的怜悯。
-
-相关：[[救恩]] [[信心]]
-`,
-    );
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "yanjing-biji-obsidian-export.zip";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
 
   return (
     <div>
@@ -55,7 +19,7 @@ tags:
         <Panel className="p-5">
           <h2 className="text-lg font-semibold">导出到 Obsidian</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            适合把研读笔记放进自己的 Vault，继续使用 Obsidian 的双链和图谱。
+            从账户数据库导出真实笔记、研读项目和资料，放进自己的 Vault 继续使用。
           </p>
 
           <div className="mt-5 grid gap-3">
@@ -81,11 +45,8 @@ tags:
             )}
           </div>
 
-          <div className="mt-6" onClick={exportMarkdown}>
-            <Button>
-              <Download size={17} />
-              导出 Markdown
-            </Button>
+          <div className="mt-6">
+            <ObsidianExportButton />
           </div>
         </Panel>
 
