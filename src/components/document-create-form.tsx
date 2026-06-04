@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Save } from "lucide-react";
+import { FileUp, Plus, Save } from "lucide-react";
 import { DOCUMENT_TYPES } from "@/lib/document-types";
 
 export function DocumentCreateForm() {
@@ -13,7 +13,37 @@ export function DocumentCreateForm() {
   const [tags, setTags] = useState("");
   const [extractedText, setExtractedText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setFileName(file.name);
+
+    const extension = file.name.split(".").pop()?.toLocaleLowerCase() ?? "";
+    if (extension === "pdf" || file.type === "application/pdf") {
+      setError("PDF 文件已识别，但当前版本还不能解析 PDF 正文；请先粘贴摘录，或上传 .txt / .md 文件。");
+      event.target.value = "";
+      return;
+    }
+
+    if (!["txt", "md", "markdown"].includes(extension) && file.type && !file.type.startsWith("text/")) {
+      setError("当前支持解析 .txt、.md、.markdown 文件。其他格式请先复制正文到资料正文。");
+      event.target.value = "";
+      return;
+    }
+
+    const text = await file.text();
+    const inferredType = extension === "md" || extension === "markdown" ? "Markdown" : "TXT";
+    const titleFromFile = file.name.replace(/\.[^.]+$/, "").trim();
+
+    setTitle((current) => current || titleFromFile || "未命名资料");
+    setFileType(inferredType);
+    setExtractedText(text);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +58,7 @@ export function DocumentCreateForm() {
         fileType,
         tags,
         extractedText,
+        originalFilename: fileName,
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -46,6 +77,7 @@ export function DocumentCreateForm() {
     setTitle("");
     setTags("");
     setExtractedText("");
+    setFileName("");
     setOpen(false);
     router.refresh();
   }
@@ -97,6 +129,18 @@ export function DocumentCreateForm() {
         placeholder="标签，例如：约翰福音 救恩 永生"
         aria-label="资料标签"
       />
+
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-dashed border-[var(--line)] bg-[var(--background)] px-3 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)]">
+        <FileUp size={17} className="text-[var(--accent)]" />
+        <span className="font-semibold text-[var(--foreground)]">选择 .txt / .md 文件</span>
+        <span className="min-w-0 truncate">{fileName || "也可以直接粘贴正文"}</span>
+        <input
+          type="file"
+          accept=".txt,.md,.markdown,text/plain,text/markdown,application/pdf,.pdf"
+          onChange={handleFileChange}
+          className="sr-only"
+        />
+      </label>
 
       <textarea
         value={extractedText}

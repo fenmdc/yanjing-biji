@@ -32,6 +32,10 @@ export async function POST(request: Request) {
       : "未命名资料";
   const fileType = normalizeDocumentType(payload.fileType);
   const extractedText = typeof payload.extractedText === "string" ? payload.extractedText : "";
+  const originalFilename =
+    typeof payload.originalFilename === "string" && payload.originalFilename.trim()
+      ? payload.originalFilename.trim()
+      : `${title}.${fileType === "Markdown" ? "md" : "txt"}`;
   const tags = parseTags(typeof payload.tags === "string" ? payload.tags : "");
 
   if (!extractedText.trim()) {
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
     data: {
       userId: user.id,
       title,
-      originalFilename: `${title}.${fileType === "Markdown" ? "md" : "txt"}`,
+      originalFilename,
       fileType,
       extractedText,
       excerpt: createExcerpt(extractedText),

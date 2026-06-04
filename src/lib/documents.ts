@@ -15,6 +15,7 @@ export const DOCUMENT_WITH_TAGS = Prisma.validator<Prisma.DocumentDefaultArgs>()
 });
 
 export type DocumentWithTags = Prisma.DocumentGetPayload<typeof DOCUMENT_WITH_TAGS>;
+export type DocumentClient = ReturnType<typeof documentToClient>;
 
 export function documentToClient(document: DocumentWithTags) {
   return {

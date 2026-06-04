@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, Search } from "lucide-react";
 import { DocumentCreateForm } from "@/components/document-create-form";
+import { DocumentDetailEditor } from "@/components/document-detail-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
 import { requireCurrentUser } from "@/lib/auth";
 import { DOCUMENT_TYPES } from "@/lib/document-types";
@@ -144,6 +145,19 @@ export default async function LibraryPage({
                   {formatDate(selectedDocument.updatedAt)}
                 </p>
               </div>
+              <DocumentDetailEditor
+                document={{
+                  id: selectedDocument.id,
+                  title: selectedDocument.title,
+                  originalFilename: selectedDocument.originalFilename,
+                  fileType: selectedDocument.fileType,
+                  excerpt: selectedDocument.excerpt ?? "",
+                  extractedText: selectedDocument.extractedText ?? "",
+                  tags: selectedDocument.tags.map((item) => item.tag.name),
+                  createdAt: selectedDocument.createdAt.toISOString(),
+                  updatedAt: selectedDocument.updatedAt.toISOString(),
+                }}
+              />
               <article className="max-w-3xl whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
                 {selectedDocument.extractedText || selectedDocument.excerpt || "暂无正文。"}
               </article>
