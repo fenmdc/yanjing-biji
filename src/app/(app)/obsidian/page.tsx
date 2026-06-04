@@ -1,18 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { FileUp } from "lucide-react";
 import { ObsidianExportButton } from "@/components/obsidian-export-button";
+import { ObsidianImportPanel } from "@/components/obsidian-import-panel";
 import { PageHeader, Panel } from "@/components/ui";
 
 export default function ObsidianPage() {
-  const [ready, setReady] = useState(false);
-
   return (
     <div>
       <PageHeader
         title="Obsidian 互通"
-        description="第一版采用稳妥的文件互通：导出 Markdown，保留 YAML、双链和标签；导入功能先预留入口。"
+        description="采用稳妥的文件互通：导出真实 Markdown，也能从 Obsidian 导入 .md 文件。"
       />
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -53,23 +50,10 @@ export default function ObsidianPage() {
         <Panel className="p-5">
           <h2 className="text-lg font-semibold">导入 Markdown</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            后续会支持从 Obsidian 导入 .md 文件，并识别 YAML、标签与双链。
+            从 Obsidian 导入 .md 文件，并识别 YAML、标签与正文标题，保存到当前账户数据库。
           </p>
 
-          <button
-            onClick={() => setReady(true)}
-            className="mt-5 flex min-h-48 w-full flex-col items-center justify-center rounded-lg border border-dashed border-[var(--line)] bg-[var(--background)] text-center transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
-          >
-            <FileUp size={28} className="mb-3 text-[var(--accent)]" />
-            <span className="font-semibold">拖入 Markdown 文件</span>
-            <span className="mt-1 text-sm text-[var(--muted)]">或点击选择文件</span>
-          </button>
-
-          {ready ? (
-            <p className="mt-4 rounded-md bg-[var(--accent-soft)] p-3 text-sm font-semibold text-[var(--accent-strong)]">
-              导入入口已预留。下一步接真实文件解析后，这里会显示导入预览。
-            </p>
-          ) : null}
+          <ObsidianImportPanel />
         </Panel>
       </div>
     </div>
