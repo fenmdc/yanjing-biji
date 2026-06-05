@@ -4,6 +4,7 @@ import { normalizeDocumentType } from "@/lib/documents";
 import { normalizeNoteType, parseTags } from "@/lib/notes";
 
 export type ParsedObsidianMarkdown = {
+  filename: string;
   title: string;
   body: string;
   tags: string[];
@@ -28,6 +29,7 @@ export function parseObsidianMarkdown({
   const target = isDocumentType(type) ? "document" : "note";
 
   return {
+    filename,
     title,
     body,
     tags,
