@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Bookmark, NotebookPen } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { Button, PageHeader, Panel, Tag } from "@/components/ui";
+import { StudyCreateButton } from "@/components/study-create-button";
 import { getBibleChapter, getBibleManifest } from "@/lib/bible-files";
 
 export default async function BiblePage({
@@ -33,12 +34,12 @@ export default async function BiblePage({
         title="圣经阅读"
         description="选择经文，阅读上下文，并把一段经文送入研读工作区。"
         action={
-          <Link href="/study/john-3-16">
-            <Button>
-              <NotebookPen size={17} />
-              进入研读
-            </Button>
-          </Link>
+          <StudyCreateButton
+            versionCode={selectedVersion}
+            bookCode={selectedBook}
+            chapter={safeChapter}
+            label="用本章新建研读"
+          />
         }
       />
 
@@ -47,11 +48,11 @@ export default async function BiblePage({
           <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">经卷目录</h2>
           <div className="max-h-[720px] space-y-1 overflow-auto pr-1">
             {books.map((item) => (
-                <Link
-                  key={item.code}
-                  href={`/bible?version=${selectedVersion}&book=${item.code}&chapter=1`}
-                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                    item.code === selectedBook
+              <Link
+                key={item.code}
+                href={`/bible?version=${selectedVersion}&book=${item.code}&chapter=1`}
+                className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                  item.code === selectedBook
                     ? "bg-[var(--foreground)] font-semibold text-white"
                     : "text-[var(--muted)] hover:bg-[var(--panel-soft)]"
                 }`}
@@ -142,12 +143,12 @@ export default async function BiblePage({
               <Bookmark size={16} />
               收藏经文
             </Button>
-            <Link href="/study/john-3-16">
-              <Button>
-                <NotebookPen size={16} />
-                新建研读
-              </Button>
-            </Link>
+            <StudyCreateButton
+              versionCode={selectedVersion}
+              bookCode={selectedBook}
+              chapter={safeChapter}
+              label="新建研读"
+            />
           </div>
         </Panel>
       </div>

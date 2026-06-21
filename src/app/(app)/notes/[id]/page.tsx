@@ -8,9 +8,7 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
 import {
   formatNoteDate,
-  getLocalNote,
   NOTE_TYPES,
-  saveLocalNote,
   type LocalNote,
 } from "@/lib/local-notes";
 import { downloadMarkdown } from "@/lib/study-storage";
@@ -24,6 +22,9 @@ export default function NoteEditorPage() {
   const [tagsText, setTagsText] = useState("");
   const [body, setBody] = useState("");
   const [savedAt, setSavedAt] = useState("尚未保存");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const wordCount = useMemo(() => body.replace(/\s/g, "").length, [body]);
   const tags = useMemo(
@@ -36,9 +37,27 @@ export default function NoteEditorPage() {
   );
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const loadedNote = getLocalNote(params.id);
-      if (!loadedNote) return;
+    let cancelled = false;
+
+    async function loadNote() {
+      setLoading(true);
+      const response = await fetch(`/api/notes/${params.id}`);
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      if (response.status === 404) {
+        if (!cancelled) {
+          setNote(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const payload = await response.json();
+      const loadedNote = payload.note as LocalNote | undefined;
+      if (!loadedNote || cancelled) return;
 
       setNote(loadedNote);
       setTitle(loadedNote.title);
@@ -46,22 +65,61 @@ export default function NoteEditorPage() {
       setTagsText(loadedNote.tags.join(" "));
       setBody(loadedNote.body);
       setSavedAt(formatNoteDate(loadedNote.updatedAt));
-    });
-  }, [params.id]);
+      setLoading(false);
+    }
 
-  function handleSave() {
+    loadNote().catch(() => {
+      if (!cancelled) {
+        setError("读取笔记失败，请稍后再试。");
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, router]);
+
+  async function handleSave() {
     if (!note) return;
 
-    const nextNote = saveLocalNote({
-      ...note,
-      title: title.trim() || "未命名研经笔记",
-      type,
-      tags,
-      body,
+    setSaving(true);
+    setError("");
+    const response = await fetch(`/api/notes/${note.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: title.trim() || "未命名研经笔记",
+        type,
+        tags: tags.join(" "),
+        body,
+      }),
     });
+    const payload = await response.json().catch(() => ({}));
+    setSaving(false);
+
+    if (response.status === 401) {
+      router.push("/login");
+      return;
+    }
+
+    if (!response.ok || !payload.note) {
+      setError(typeof payload.error === "string" ? payload.error : "保存失败，请稍后再试。");
+      return;
+    }
+
+    const nextNote = payload.note as LocalNote;
 
     setNote(nextNote);
     setSavedAt(formatNoteDate(nextNote.updatedAt));
+  }
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title="正在读取笔记" description="正在从你的账户数据库读取这篇笔记。" />
+      </div>
+    );
   }
 
   if (!note) {
@@ -69,7 +127,7 @@ export default function NoteEditorPage() {
       <div>
         <PageHeader
           title="没有找到这篇笔记"
-          description="这可能是浏览器本地数据被清理，或链接来自另一个设备。"
+          description="这篇笔记不在当前账户中，或已经被删除。"
           action={
             <Link
               href="/notes"
@@ -88,7 +146,7 @@ export default function NoteEditorPage() {
     <div>
       <PageHeader
         title="编辑笔记"
-        description={`本地保存 · ${wordCount} 字 · 保存：${savedAt}`}
+        description={`账户数据库 · ${wordCount} 字 · 保存：${savedAt}`}
         action={
           <div className="flex flex-wrap gap-2">
             <button
@@ -102,10 +160,11 @@ export default function NoteEditorPage() {
             <button
               type="button"
               onClick={handleSave}
+              disabled={saving}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)]"
             >
               <Save size={17} />
-              保存
+              {saving ? "保存中..." : "保存"}
             </button>
             <button
               type="button"
@@ -118,6 +177,12 @@ export default function NoteEditorPage() {
           </div>
         }
       />
+
+      {error ? (
+        <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[280px_1fr]">
         <Panel className="p-4">

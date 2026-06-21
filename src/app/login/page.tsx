@@ -1,7 +1,12 @@
-import Link from "next/link";
 import { BookMarked } from "lucide-react";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { LoginForm } from "@/app/login/login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const user = await getCurrentUser();
+  if (user) redirect("/dashboard");
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4">
       <section className="w-full max-w-md rounded-lg border border-[var(--line)] bg-white p-6">
@@ -15,27 +20,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <label className="mb-4 block text-sm font-semibold">
-          邮箱
-          <input
-            className="mt-2 h-11 w-full rounded-md border border-[var(--line)] px-3 outline-none focus:border-[var(--accent)]"
-            placeholder="you@example.com"
-          />
-        </label>
-        <label className="mb-5 block text-sm font-semibold">
-          密码
-          <input
-            type="password"
-            className="mt-2 h-11 w-full rounded-md border border-[var(--line)] px-3 outline-none focus:border-[var(--accent)]"
-            placeholder="输入密码"
-          />
-        </label>
-        <Link
-          href="/dashboard"
-          className="flex h-11 items-center justify-center rounded-md bg-[var(--accent)] text-sm font-semibold text-white"
-        >
-          登录
-        </Link>
+        <LoginForm />
       </section>
     </main>
   );

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="研经笔记">
+  <rect width="512" height="512" rx="96" fill="#b42318"/>
+  <path d="M152 112h196c24 0 44 20 44 44v276H180c-36 0-64-28-64-64V148c0-20 16-36 36-36Z" fill="#fffaf3"/>
+  <path d="M160 112h26v300h-24c-20 0-36-16-36-36V148c0-20 14-36 34-36Z" fill="#111"/>
+  <path d="M212 190h104M212 242h132M212 294h92" fill="none" stroke="#111" stroke-width="20" stroke-linecap="round"/>
+  <path d="M348 112v150l-34-25-34 25V112Z" fill="#f5c542"/>
+  <path d="M180 432h212v-46H180c-14 0-26 10-26 23s12 23 26 23Z" fill="#e9e2d8"/>
+</svg>

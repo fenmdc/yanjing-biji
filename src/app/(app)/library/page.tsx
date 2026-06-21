@@ -1,81 +1,190 @@
-import { Upload } from "lucide-react";
-import { Button, PageHeader, Panel, Tag } from "@/components/ui";
-import { resources } from "@/lib/sample-data";
+import Link from "next/link";
+import { FileText, Search } from "lucide-react";
+import { DocumentCreateForm } from "@/components/document-create-form";
+import { DocumentDetailEditor } from "@/components/document-detail-editor";
+import { PageHeader, Panel, Tag } from "@/components/ui";
+import { requireCurrentUser } from "@/lib/auth";
+import { DOCUMENT_TYPES } from "@/lib/document-types";
+import { DOCUMENT_WITH_TAGS } from "@/lib/documents";
+import { prisma } from "@/lib/prisma";
 
-export default function LibraryPage() {
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    q?: string;
+    type?: string;
+    doc?: string;
+  }>;
+}) {
+  const user = await requireCurrentUser();
+  const params = await searchParams;
+  const query = params?.q?.trim() ?? "";
+  const selectedType =
+    typeof params?.type === "string" && DOCUMENT_TYPES.includes(params.type as never)
+      ? params.type
+      : "全部类型";
+
+  const documents = await prisma.document.findMany({
+    where: {
+      userId: user.id,
+      ...(selectedType !== "全部类型" ? { fileType: selectedType } : {}),
+      ...(query
+        ? {
+            OR: [
+              { title: { contains: query, mode: "insensitive" as const } },
+              { originalFilename: { contains: query, mode: "insensitive" as const } },
+              { excerpt: { contains: query, mode: "insensitive" as const } },
+              { extractedText: { contains: query, mode: "insensitive" as const } },
+              {
+                tags: {
+                  some: {
+                    tag: {
+                      name: { contains: query, mode: "insensitive" as const },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    ...DOCUMENT_WITH_TAGS,
+  });
+  const selectedDocument =
+    documents.find((document) => document.id === params?.doc) ?? documents[0] ?? null;
+
   return (
     <div>
       <PageHeader
         title="资料库"
-        description="第一版先把个人资料整理好：上传、分类、加标签、关联经文。"
-        action={
-          <Button>
-            <Upload size={17} />
-            上传资料
-          </Button>
-        }
+        description="保存个人资料摘录、讲章材料与 Markdown 内容，资料会进入账户数据库和全局搜索。"
       />
 
+      <div className="mb-5">
+        <DocumentCreateForm />
+      </div>
+
       <Panel className="mb-5 p-3">
-        <div className="grid gap-3 md:grid-cols-[1fr_150px_150px]">
-          <input
-            className="h-11 rounded-md border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--accent)]"
-            placeholder="搜索资料标题、正文或经文引用"
-          />
-          <select className="h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm">
+        <form className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
+          <div className="flex h-11 items-center gap-3 rounded-md border border-[var(--line)] bg-[var(--background)] px-3">
+            <Search size={18} className="text-[var(--accent)]" />
+            <input
+              name="q"
+              defaultValue={query}
+              className="h-full flex-1 bg-transparent text-sm outline-none"
+              placeholder="搜索资料标题、正文或标签"
+              aria-label="搜索资料"
+            />
+          </div>
+          <select
+            name="type"
+            defaultValue={selectedType}
+            className="h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm"
+          >
             <option>全部类型</option>
-            <option>PDF</option>
-            <option>Markdown</option>
-            <option>TXT</option>
+            {DOCUMENT_TYPES.map((type) => (
+              <option key={type}>{type}</option>
+            ))}
           </select>
-          <select className="h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm">
-            <option>全部经卷</option>
-            <option>约翰福音</option>
-            <option>罗马书</option>
-          </select>
-        </div>
+          <button className="h-11 rounded-md bg-[var(--foreground)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent)]">
+            搜索
+          </button>
+        </form>
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
-        <Panel className="divide-y divide-[var(--line)]">
-          {resources.map((resource, index) => (
-            <button
-              key={resource.title}
-              className={`block w-full border-l-4 p-4 text-left transition hover:bg-[var(--panel-soft)] ${
-                index === 0 ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-transparent"
+        <Panel className="divide-y divide-[var(--line)] overflow-hidden">
+          {documents.length > 0 ? (
+            documents.map((document) => (
+              <Link
+                key={document.id}
+                href={`/library?${new URLSearchParams({
+                  ...(query ? { q: query } : {}),
+                  ...(selectedType !== "全部类型" ? { type: selectedType } : {}),
+                  doc: document.id,
+                }).toString()}`}
+                className={`block w-full border-l-4 p-4 text-left transition hover:bg-[var(--panel-soft)] ${
+                  selectedDocument?.id === document.id
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-transparent"
               }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-semibold">{resource.title}</h2>
-                <span className="text-xs text-[var(--muted)]">{resource.type}</span>
-              </div>
-              <p className="mt-2 text-sm text-[var(--muted)]">关联经文：{resource.passage}</p>
-            </button>
-          ))}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-semibold">{document.title}</h2>
+                  <span className="text-xs text-[var(--muted)]">{document.fileType}</span>
+                </div>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
+                  {document.excerpt || document.originalFilename}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {document.tags.slice(0, 3).map((item) => (
+                    <Tag key={item.tag.id}>{item.tag.name}</Tag>
+                  ))}
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="p-5 text-sm leading-6 text-[var(--muted)]">
+              还没有资料。新增一段书摘、讲章材料或 Markdown 内容后，就可以在这里和全局搜索中查到。
+            </div>
+          )}
         </Panel>
 
         <Panel className="p-5">
-          <div className="mb-5 border-b border-[var(--line)] pb-4">
-            <h2 className="text-xl font-semibold">约翰福音第三章解经摘录</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">类型：Markdown · 来源：个人上传</p>
-          </div>
-          <article className="max-w-3xl text-sm leading-7 text-[var(--foreground)]">
-            <p>
-              约翰福音第三章把重生、信心与永生放在同一条救赎逻辑中。约 3:16
-              不是孤立的金句，而是回应尼哥底母对新生命的疑问。
-            </p>
-            <p className="mt-4">
-              “神爱世人”显明救恩的源头在神自己；“赐下独生子”显明爱的行动；
-              “叫一切信他的”指出人回应福音的方式；“反得永生”则指向新生命的结果。
-            </p>
-          </article>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {["约翰福音", "救恩", "永生"].map((tag) => (
-              <Tag key={tag}>{tag}</Tag>
-            ))}
-          </div>
+          {selectedDocument ? (
+            <>
+              <div className="mb-5 border-b border-[var(--line)] pb-4">
+                <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-[var(--panel-soft)] text-[var(--accent)]">
+                  <FileText size={19} />
+                </div>
+                <h2 className="text-xl font-semibold">{selectedDocument.title}</h2>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  类型：{selectedDocument.fileType} · 更新：
+                  {formatDate(selectedDocument.updatedAt)}
+                </p>
+              </div>
+              <DocumentDetailEditor
+                document={{
+                  id: selectedDocument.id,
+                  title: selectedDocument.title,
+                  originalFilename: selectedDocument.originalFilename,
+                  fileType: selectedDocument.fileType,
+                  excerpt: selectedDocument.excerpt ?? "",
+                  extractedText: selectedDocument.extractedText ?? "",
+                  tags: selectedDocument.tags.map((item) => item.tag.name),
+                  createdAt: selectedDocument.createdAt.toISOString(),
+                  updatedAt: selectedDocument.updatedAt.toISOString(),
+                }}
+              />
+              <article className="max-w-3xl whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
+                {selectedDocument.extractedText || selectedDocument.excerpt || "暂无正文。"}
+              </article>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {selectedDocument.tags.length > 0 ? (
+                  selectedDocument.tags.map((item) => <Tag key={item.tag.id}>{item.tag.name}</Tag>)
+                ) : (
+                  <Tag>未分类</Tag>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] p-5 text-sm leading-6 text-[var(--muted)]">
+              资料库会保存到你的账户数据库。先新增一段资料，之后可以通过标题、正文和标签搜索。
+            </div>
+          )}
         </Panel>
       </div>
     </div>
   );
+}
+
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
 }

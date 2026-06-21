@@ -1,9 +1,77 @@
 import Link from "next/link";
-import { ArrowRight, Search } from "lucide-react";
-import { Button, PageHeader, Panel } from "@/components/ui";
-import { dashboardCards, quickActions } from "@/lib/sample-data";
+import { ArrowRight, BookOpen, FileText, Library, NotebookPen, Search, Upload } from "lucide-react";
+import { Button, PageHeader, Panel, Tag } from "@/components/ui";
+import { requireCurrentUser } from "@/lib/auth";
+import { NOTE_TYPE_LABELS } from "@/lib/notes";
+import { prisma } from "@/lib/prisma";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await requireCurrentUser();
+  const [noteCount, studyCount, documentCount, recentStudies, recentNotes] = await Promise.all([
+    prisma.note.count({ where: { userId: user.id } }),
+    prisma.studyProject.count({ where: { userId: user.id } }),
+    prisma.document.count({ where: { userId: user.id } }),
+    prisma.studyProject.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+      include: {
+        notes: {
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            excerpt: true,
+            updatedAt: true,
+            tags: {
+              include: {
+                tag: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.note.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const primaryStudy = recentStudies[0] ?? null;
+  const displayName = user.name || user.email.split("@")[0];
+  const dashboardCards = [
+    {
+      title: "研读项目",
+      body: `${studyCount} 个`,
+      meta: primaryStudy ? `最近更新：${primaryStudy.title}` : "从圣经阅读页新建第一个研读",
+      icon: BookOpen,
+      href: primaryStudy ? `/study/${primaryStudy.id}` : "/bible",
+    },
+    {
+      title: "笔记库",
+      body: `${noteCount} 篇`,
+      meta: recentNotes[0] ? `最新笔记：${recentNotes[0].title}` : "经文、主题、问题和讲章草稿",
+      icon: NotebookPen,
+      href: "/notes",
+    },
+    {
+      title: "资料整理",
+      body: `${documentCount} 个`,
+      meta: "书摘、讲章材料和 Markdown 摘录已保存到资料库",
+      icon: Library,
+      href: "/library",
+    },
+  ];
+
   return (
     <div>
       <section className="mb-6 rounded-lg bg-[var(--foreground)] p-5 text-white shadow-[var(--shadow)] sm:p-6">
@@ -11,21 +79,25 @@ export default function DashboardPage() {
           <div>
             <div className="mb-4 h-1 w-12 rounded-full bg-[var(--accent)]" />
             <h1 className="max-w-3xl text-2xl font-semibold leading-tight sm:text-4xl">
-              把每天的读经，沉淀成可检索、可关联、可导出的研读笔记。
+              {displayName}，继续把读经沉淀成可检索、可关联、可导出的研读笔记。
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-300">
-              当前第一版聚焦核心闭环：经文阅读、Markdown 研读、标签双链、资料关联与
-              Obsidian 导出。
+              这里现在读取你的账户数据库：最近研读、最近笔记和统计数量都会随保存更新。
             </p>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-            <p className="text-xs font-semibold text-zinc-400">今日入口</p>
-            <p className="mt-2 text-lg font-semibold">约翰福音 3:16-21</p>
+            <p className="text-xs font-semibold text-zinc-400">继续入口</p>
+            <p className="mt-2 text-lg font-semibold">
+              {primaryStudy?.title ?? "从一章经文开始"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              {primaryStudy?.passageLabel ?? "选择译本、经卷和章节后创建研读项目。"}
+            </p>
             <Link
-              href="/study/john-3-16"
+              href={primaryStudy ? `/study/${primaryStudy.id}` : "/bible"}
               className="mt-4 inline-flex h-10 items-center rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white"
             >
-              进入研读
+              {primaryStudy ? "继续研读" : "打开圣经"}
             </Link>
           </div>
         </div>
@@ -35,8 +107,8 @@ export default function DashboardPage() {
         title="工作台"
         description="快速回到最近的经文、笔记和资料，不让想法散落在不同地方。"
         action={
-          <Link href="/study/john-3-16">
-            <Button>继续约翰福音 3:16-21</Button>
+          <Link href={primaryStudy ? `/study/${primaryStudy.id}` : "/bible"}>
+            <Button>{primaryStudy ? "继续最近研读" : "新建研读项目"}</Button>
           </Link>
         }
       />
@@ -55,17 +127,19 @@ export default function DashboardPage() {
         {dashboardCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Panel key={card.title} className="p-5">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="flex size-10 items-center justify-center rounded-md bg-[var(--panel-soft)] text-[var(--accent)]">
-                  <Icon size={19} />
-                </span>
-                <ArrowRight size={17} className="text-[var(--muted)]" />
-              </div>
-              <h2 className="text-sm font-semibold text-[var(--muted)]">{card.title}</h2>
-              <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">{card.body}</p>
-              <p className="mt-2 text-sm text-[var(--muted)]">{card.meta}</p>
-            </Panel>
+            <Link key={card.title} href={card.href}>
+              <Panel className="h-full p-5 transition hover:-translate-y-0.5 hover:border-[var(--accent)]">
+                <div className="mb-5 flex items-center justify-between">
+                  <span className="flex size-10 items-center justify-center rounded-md bg-[var(--panel-soft)] text-[var(--accent)]">
+                    <Icon size={19} />
+                  </span>
+                  <ArrowRight size={17} className="text-[var(--muted)]" />
+                </div>
+                <h2 className="text-sm font-semibold text-[var(--muted)]">{card.title}</h2>
+                <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">{card.body}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{card.meta}</p>
+              </Panel>
+            </Link>
           );
         })}
       </div>
@@ -74,44 +148,89 @@ export default function DashboardPage() {
         <Panel className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold">最近研读项目</h2>
-            <Link href="/study/john-3-16" className="text-sm font-semibold text-[var(--accent)]">
-              打开研读
+            <Link href="/bible" className="text-sm font-semibold text-[var(--accent)]">
+              新建研读
             </Link>
           </div>
-          {[
-            ["约翰福音 3:16-21", "进行中", "救恩、信心、永生"],
-            ["罗马书 8:1-11", "草稿", "圣灵、生命、称义"],
-            ["诗篇 23", "已归档", "牧者、安慰、同行"],
-          ].map((row) => (
-            <div
-              key={row[0]}
-              className="grid gap-3 border-t border-[var(--line)] py-4 text-sm sm:grid-cols-[1fr_90px_1fr]"
-            >
-              <span className="font-semibold">{row[0]}</span>
-              <span className="text-[var(--muted)]">{row[1]}</span>
-              <span className="text-[var(--muted)]">{row[2]}</span>
+          {recentStudies.length > 0 ? (
+            recentStudies.map((study) => (
+              <Link
+                key={study.id}
+                href={`/study/${study.id}`}
+                className="grid gap-3 border-t border-[var(--line)] py-4 text-sm transition hover:bg-[var(--panel-soft)] sm:grid-cols-[1fr_90px_1fr]"
+              >
+                <span className="font-semibold">{study.title}</span>
+                <span className="text-[var(--muted)]">
+                  {study.status === "ACTIVE" ? "进行中" : "已归档"}
+                </span>
+                <span className="text-[var(--muted)]">
+                  {study.notes[0]?.tags.map((item) => item.tag.name).join("、") || study.passageLabel}
+                </span>
+              </Link>
+            ))
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm leading-6 text-[var(--muted)]">
+              还没有研读项目。打开圣经阅读页，选择章节后创建第一个研读项目。
             </div>
-          ))}
+          )}
         </Panel>
 
         <Panel className="p-5">
-          <h2 className="mb-4 text-base font-semibold">快速开始</h2>
+          <h2 className="mb-4 text-base font-semibold">最近笔记</h2>
           <div className="grid gap-3">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.label}
-                  className="flex h-12 items-center gap-3 rounded-md border border-[var(--line)] px-3 text-sm font-semibold transition hover:bg-[var(--panel-soft)]"
+            {recentNotes.length > 0 ? (
+              recentNotes.map((note) => (
+                <Link
+                  key={note.id}
+                  href={`/notes/${note.id}`}
+                  className="rounded-md border border-[var(--line)] p-3 transition hover:bg-[var(--panel-soft)]"
                 >
-                  <Icon size={18} className="text-[var(--accent)]" />
-                  {action.label}
-                </button>
-              );
-            })}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold">{note.title}</span>
+                    <span className="text-xs text-[var(--muted)]">{NOTE_TYPE_LABELS[note.type]}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted)]">
+                    {note.excerpt}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {note.tags.slice(0, 3).map((item) => (
+                      <Tag key={item.tag.id}>{item.tag.name}</Tag>
+                    ))}
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--line)] p-4 text-sm leading-6 text-[var(--muted)]">
+                还没有笔记。你可以从研读页保存，也可以在笔记库中新建。
+              </div>
+            )}
           </div>
         </Panel>
       </div>
+
+      <Panel className="mt-6 p-5">
+        <h2 className="mb-4 text-base font-semibold">快速开始</h2>
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            { label: "新建研读", href: "/bible", icon: NotebookPen },
+            { label: "上传资料", href: "/library", icon: Upload },
+            { label: "搜索笔记", href: "/search", icon: Search },
+            { label: "导出 Markdown", href: "/obsidian", icon: FileText },
+          ].map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="flex h-12 items-center gap-3 rounded-md border border-[var(--line)] px-3 text-sm font-semibold transition hover:bg-[var(--panel-soft)]"
+              >
+                <Icon size={18} className="text-[var(--accent)]" />
+                {action.label}
+              </Link>
+            );
+          })}
+        </div>
+      </Panel>
     </div>
   );
 }

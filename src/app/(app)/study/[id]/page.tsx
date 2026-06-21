@@ -2,43 +2,113 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { Download, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
-import { john3, resources, studyMarkdown } from "@/lib/sample-data";
+import { resources, studyMarkdown } from "@/lib/sample-data";
 import {
   downloadMarkdown,
   getStudySourceSnippets,
-  getStoredStudyMarkdown,
   removeStudySourceSnippet,
-  saveStudyMarkdown,
   type StudySourceSnippet,
 } from "@/lib/study-storage";
 
+type StudyView = {
+  id: string;
+  title: string;
+  passageLabel: string;
+};
+
+type StudyContext = {
+  versionShortName: string;
+  bookName: string;
+  chapter: number;
+  verses: Array<{ verse: number; text: string }>;
+} | null;
+
 export default function StudyPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [body, setBody] = useState(studyMarkdown);
+  const [study, setStudy] = useState<StudyView>({
+    id: params.id,
+    title: "研读笔记",
+    passageLabel: "经文研读",
+  });
+  const [context, setContext] = useState<StudyContext>(null);
   const [savedAt, setSavedAt] = useState("尚未保存");
   const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const wordCount = useMemo(() => body.replace(/\s/g, "").length, [body]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setBody(getStoredStudyMarkdown());
-      setSnippets(getStudySourceSnippets());
-      const lastSaved = window.localStorage.getItem("yanjing-biji:john-3-16-saved-at");
-      if (lastSaved) setSavedAt(lastSaved);
-    });
-  }, []);
+    let cancelled = false;
 
-  function handleSave() {
+    async function loadStudy() {
+      const response = await fetch(`/api/studies/${params.id}`);
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      const payload = await response.json();
+      if (!cancelled && typeof payload.markdown === "string") {
+        if (payload.study) {
+          setStudy({
+            id: payload.study.id,
+            title: payload.study.title,
+            passageLabel: payload.study.passageLabel,
+          });
+        }
+        setContext(payload.context ?? null);
+        setBody(payload.markdown);
+        if (payload.note?.updatedAt) {
+          setSavedAt(new Date(payload.note.updatedAt).toLocaleTimeString("zh-CN"));
+        }
+      }
+    }
+
+    loadStudy().catch(() => {
+      if (!cancelled) setError("读取研读笔记失败，当前显示初始模板。");
+    });
+
+    queueMicrotask(() => {
+      setSnippets(getStudySourceSnippets());
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, router]);
+
+  async function handleSave() {
     const savedTime = new Intl.DateTimeFormat("zh-CN", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
     }).format(new Date());
 
-    saveStudyMarkdown(body);
-    window.localStorage.setItem("yanjing-biji:john-3-16-saved-at", savedTime);
+    setSaving(true);
+    setError("");
+    const response = await fetch(`/api/studies/${params.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown: body }),
+    });
+    setSaving(false);
+
+    if (response.status === 401) {
+      router.push("/login");
+      return;
+    }
+
+    if (!response.ok) {
+      setError("保存失败，请稍后再试。");
+      return;
+    }
+
     setSavedAt(savedTime);
   }
 
@@ -60,19 +130,20 @@ export default function StudyPage() {
   return (
     <div>
       <PageHeader
-        title="约翰福音 3:16-21 研读"
-        description="核心研读页：左边看上下文，中间写 Markdown，右边整理主题、双链与资料。"
+        title={study.title}
+        description={`${study.passageLabel} · 左边看上下文，中间写 Markdown，右边整理主题、双链与资料。`}
         action={
           <div className="flex gap-2">
             <button
               onClick={handleSave}
+              disabled={saving}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)]"
             >
               <Save size={17} />
-              保存
+              {saving ? "保存中..." : "保存"}
             </button>
             <button
-              onClick={() => downloadMarkdown("约翰福音 3.16-21 研读.md", body)}
+              onClick={() => downloadMarkdown(`${study.title}.md`, body)}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--foreground)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
             >
               <Download size={17} />
@@ -82,28 +153,38 @@ export default function StudyPage() {
         }
       />
 
+      {error ? (
+        <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <div className="grid gap-5 xl:grid-cols-[260px_1fr_300px]">
         <Panel className="p-4">
           <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">经文上下文</h2>
           <div className="space-y-2">
-            {john3.map((item) => (
-              <p
-                key={item.verse}
-                className={`rounded-md border-l-4 p-2 text-sm leading-6 ${
-                  item.verse >= 16 && item.verse <= 21
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                    : "border-transparent text-[var(--muted)]"
-                }`}
-              >
-                <span className="mr-1 font-semibold">{item.verse}</span>
-                {item.text}
-              </p>
-            ))}
+            {context ? (
+              context.verses.map((item) => (
+                <p
+                  key={item.verse}
+                  className="rounded-md border-l-4 border-transparent p-2 text-sm leading-6 text-[var(--muted)] hover:bg-[var(--panel-soft)]"
+                >
+                  <span className="mr-1 font-semibold text-[var(--accent)]">{item.verse}</span>
+                  {item.text}
+                </p>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--line)] p-3 text-sm leading-6 text-[var(--muted)]">
+                这个研读项目还没有绑定经文章节。
+              </div>
+            )}
           </div>
 
           <h2 className="mb-3 mt-5 text-sm font-semibold text-[var(--muted)]">关键词</h2>
           <div className="flex flex-wrap gap-2">
-            {["神爱", "世人", "信", "永生", "光", "定罪"].map((tag) => (
+            {[context?.bookName, "研读", context?.versionShortName, "观察", "应用"]
+              .filter(Boolean)
+              .map((tag) => (
               <Tag key={tag}>{tag}</Tag>
             ))}
           </div>
