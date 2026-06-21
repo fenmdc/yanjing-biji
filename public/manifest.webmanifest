@@ -1,0 +1,42 @@
+{
+  "name": "研经笔记",
+  "short_name": "研经笔记",
+  "description": "个人研经、笔记、资料与 Obsidian 互通工具。",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "id": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f4f4f2",
+  "theme_color": "#b42318",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "新建研读",
+      "short_name": "研读",
+      "description": "打开研读项目列表。",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "笔记",
+      "short_name": "笔记",
+      "description": "进入笔记列表。",
+      "url": "/notes",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "资料库",
+      "short_name": "资料",
+      "description": "进入资料库。",
+      "url": "/library",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
