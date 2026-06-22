@@ -13,36 +13,54 @@ export function DocumentCreateForm() {
   const [tags, setTags] = useState("");
   const [extractedText, setExtractedText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setError("");
+    setNotice("");
     setFileName(file.name);
+    setParsing(true);
 
-    const extension = file.name.split(".").pop()?.toLocaleLowerCase() ?? "";
-    if (extension === "pdf" || file.type === "application/pdf") {
-      setError("PDF 文件已识别，但当前版本还不能解析 PDF 正文；请先粘贴摘录，或上传 .txt / .md 文件。");
-      event.target.value = "";
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/documents/parse", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    setParsing(false);
+    event.target.value = "";
+
+    if (response.status === 401) {
+      router.push("/login");
       return;
     }
 
-    if (!["txt", "md", "markdown"].includes(extension) && file.type && !file.type.startsWith("text/")) {
-      setError("当前支持解析 .txt、.md、.markdown 文件。其他格式请先复制正文到资料正文。");
-      event.target.value = "";
+    if (!response.ok || !payload.parsed) {
+      setError(typeof payload.error === "string" ? payload.error : "解析失败，请手动粘贴资料正文。");
       return;
     }
 
-    const text = await file.text();
-    const inferredType = extension === "md" || extension === "markdown" ? "Markdown" : "TXT";
-    const titleFromFile = file.name.replace(/\.[^.]+$/, "").trim();
+    const parsed = payload.parsed as {
+      title: string;
+      fileType: (typeof DOCUMENT_TYPES)[number];
+      originalFilename: string;
+      extractedText: string;
+      warning: string | null;
+    };
 
-    setTitle((current) => current || titleFromFile || "未命名资料");
-    setFileType(inferredType);
-    setExtractedText(text);
+    setTitle((current) => current || parsed.title || "未命名资料");
+    setFileType(parsed.fileType);
+    setFileName(parsed.originalFilename);
+    setExtractedText(parsed.extractedText);
+    setNotice(parsed.warning ?? `${parsed.fileType} 已解析，可继续补充标签后保存。`);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -78,6 +96,7 @@ export function DocumentCreateForm() {
     setTags("");
     setExtractedText("");
     setFileName("");
+    setNotice("");
     setOpen(false);
     router.refresh();
   }
@@ -132,12 +151,17 @@ export function DocumentCreateForm() {
 
       <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-dashed border-[var(--line)] bg-[var(--background)] px-3 text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)]">
         <FileUp size={17} className="text-[var(--accent)]" />
-        <span className="font-semibold text-[var(--foreground)]">选择 .txt / .md 文件</span>
-        <span className="min-w-0 truncate">{fileName || "也可以直接粘贴正文"}</span>
+        <span className="font-semibold text-[var(--foreground)]">
+          {parsing ? "解析文件中..." : "选择资料文件"}
+        </span>
+        <span className="min-w-0 truncate">
+          {fileName || "支持 .txt / .md / .pdf / .docx，也可以直接粘贴正文"}
+        </span>
         <input
           type="file"
-          accept=".txt,.md,.markdown,text/plain,text/markdown,application/pdf,.pdf"
+          accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           onChange={handleFileChange}
+          disabled={parsing || saving}
           className="sr-only"
         />
       </label>
@@ -155,11 +179,16 @@ export function DocumentCreateForm() {
           {error}
         </div>
       ) : null}
+      {notice ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || parsing}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--foreground)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save size={17} />
@@ -170,6 +199,7 @@ export function DocumentCreateForm() {
           onClick={() => {
             setOpen(false);
             setError("");
+            setNotice("");
           }}
           className="inline-flex h-10 items-center justify-center rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)]"
         >
