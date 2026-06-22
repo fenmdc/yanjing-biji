@@ -10,6 +10,7 @@ import {
   StudyDocumentsPanel,
   type StudyDocumentItem,
 } from "@/components/study-documents-panel";
+import { StudyWebSearchPanel } from "@/components/study-web-search-panel";
 import { studyMarkdown } from "@/lib/sample-data";
 import {
   ensureStudyWorkflowSections,
@@ -48,6 +49,7 @@ export default function StudyPage() {
   });
   const [context, setContext] = useState<StudyContext>(null);
   const [documentLinksEnabled, setDocumentLinksEnabled] = useState(false);
+  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [savedAt, setSavedAt] = useState("尚未保存");
   const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
   const [saving, setSaving] = useState(false);
@@ -304,6 +306,7 @@ export default function StudyPage() {
           <div className="mt-6">
             {documentLinksEnabled ? (
               <StudyDocumentsPanel
+                key={documentsRefreshKey}
                 studyId={study.id}
                 onInsertExcerpt={handleInsertDocumentExcerpt}
                 onInsertSelection={handleInsertDocumentSelection}
@@ -317,6 +320,16 @@ export default function StudyPage() {
               </div>
             )}
           </div>
+
+          {documentLinksEnabled ? (
+            <div className="mt-6">
+              <StudyWebSearchPanel
+                studyId={study.id}
+                defaultQuery={`${study.passageLabel} 释经 背景`}
+                onSaved={() => setDocumentsRefreshKey((current) => current + 1)}
+              />
+            </div>
+          ) : null}
 
           <h2 className="mb-3 mt-6 text-sm font-semibold text-[var(--muted)]">研读篮</h2>
           <div className="space-y-3">

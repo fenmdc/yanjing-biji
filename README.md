@@ -12,6 +12,7 @@
 - 研读项目保存到 PostgreSQL，并可继续编辑 Markdown 研读笔记。
 - 笔记库支持 Markdown 编辑、标签和详情页。
 - 资料库支持文本、Markdown、PDF、DOCX 摘录创建，资料详情编辑和删除。
+- 研读页可接入 Brave 或 Tavily 做全网辅助资料索引，并把结果保存为资料、关联到当前研读。
 - 全局搜索覆盖研读项目、笔记和资料。
 - Obsidian 支持 Markdown/ZIP 导出，支持 `.md` / `.markdown` 预览、批量导入和重复检测。
 - 数据安全支持完整账户备份 ZIP 导出，以及非破坏式合并恢复。
@@ -59,6 +60,19 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/bible_study_workbenc
 ```
 
 如果你的 PostgreSQL 用户、密码或数据库名不同，请修改 `.env`。
+
+可选：开启全网辅助资料索引。
+
+```env
+SEARCH_PROVIDER="brave"
+BRAVE_SEARCH_API_KEY="你的 Brave Search API Key"
+
+# 或者：
+SEARCH_PROVIDER="tavily"
+TAVILY_API_KEY="你的 Tavily API Key"
+```
+
+未配置搜索 API Key 时，应用仍可正常使用；研读页的全网资料索引会提示先配置搜索服务。
 
 安装依赖并准备数据库：
 
@@ -224,6 +238,20 @@ yanjing-biji-backup-2026-06-22T10-30-00-000Z.zip
 - 搜索资料内容
 
 PDF 支持文本型 PDF 正文提取。扫描版 PDF 暂不做 OCR，如果没有解析出正文，请先手动粘贴摘录或用 OCR 工具转成文本后导入。
+
+## 全网辅助资料索引
+
+入口：真实研读项目的 `/study/[id]` 页面。
+
+当前支持：
+
+- 使用 Brave Search 或 Tavily 搜索全网资料。
+- 根据当前研读经文预填搜索关键词。
+- 查看网页标题、来源、摘要和链接。
+- 将搜索结果保存为资料库条目。
+- 保存后自动关联到当前研读项目。
+
+全网搜索结果默认只保存标题、来源 URL 和摘要，不自动抓取完整网页内容。建议把搜索结果当作资料索引和入口，正式引用前仍打开原网页核对上下文。
 
 ## 圣经数据
 
