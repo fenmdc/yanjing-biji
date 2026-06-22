@@ -11,6 +11,7 @@ import {
   NotebookPen,
   Search,
   ScrollText,
+  Settings,
 } from "lucide-react";
 import { navItems } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ export function AppShell({
     { href: "/bible", label: "圣经", icon: BookOpen },
     { href: "/study/john-3-16", label: "研读", icon: NotebookPen },
     { href: "/notes", label: "笔记", icon: ScrollText },
-    { href: "/search", label: "搜索", icon: Search },
+    { href: "/settings", label: "设置", icon: Settings },
   ];
 
   return (
@@ -78,9 +79,12 @@ export function AppShell({
 
           <div className="ml-auto hidden min-w-0 items-center gap-3 md:flex xl:ml-0">
             <div className="min-w-0 text-right">
-              <p className="truncate text-xs font-semibold text-white">
+              <Link
+                href="/settings"
+                className="block truncate text-xs font-semibold text-white transition hover:text-zinc-200"
+              >
                 {user.name || user.email}
-              </p>
+              </Link>
               <p className="truncate text-[11px] text-zinc-400">已登录</p>
             </div>
             <form action="/logout" method="post">

@@ -19,6 +19,7 @@ model User {
   notes        Note[]
   tags         Tag[]
   documents    Document[]
+  apiKeys      UserApiKey[]
 }
 
 model Session {
@@ -31,6 +32,20 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model UserApiKey {
+  id            String            @id @default(cuid())
+  userId        String
+  provider      ApiKeyProvider
+  encryptedKey  String
+  keyPreview    String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 model BibleBook {
@@ -216,6 +231,11 @@ model DocumentPassage {
 enum UserRole {
   USER
   ADMIN
+}
+
+enum ApiKeyProvider {
+  BRAVE
+  TAVILY
 }
 
 enum Testament {

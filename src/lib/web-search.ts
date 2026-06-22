@@ -1,3 +1,9 @@
+import {
+  getPreferredUserSearchProvider,
+  getUserSearchApiKey,
+  normalizeSearchApiProvider,
+} from "@/lib/user-api-keys";
+
 export type SearchProviderName = "brave" | "tavily";
 
 export type WebSearchResult = {
@@ -21,8 +27,8 @@ export class WebSearchConfigurationError extends Error {
   }
 }
 
-export async function searchWeb(query: string, options?: { limit?: number }) {
-  const provider = getSearchProvider();
+export async function searchWeb(query: string, options?: { limit?: number; userId?: string }) {
+  const provider = await getSearchProvider(options?.userId);
   const results = await provider.search(query, options);
 
   return {
@@ -32,25 +38,33 @@ export async function searchWeb(query: string, options?: { limit?: number }) {
 }
 
 export function getConfiguredSearchProviderName(): SearchProviderName | null {
-  const requested = process.env.SEARCH_PROVIDER?.trim().toLocaleLowerCase();
-  if (requested === "brave" || requested === "tavily") return requested;
+  const requested = normalizeSearchApiProvider(process.env.SEARCH_PROVIDER);
+  if (requested) return requested;
   if (process.env.BRAVE_SEARCH_API_KEY) return "brave";
   if (process.env.TAVILY_API_KEY) return "tavily";
   return null;
 }
 
-function getSearchProvider(): SearchProvider {
-  const providerName = getConfiguredSearchProviderName();
-  if (providerName === "brave") return createBraveProvider();
-  if (providerName === "tavily") return createTavilyProvider();
+async function getSearchProvider(userId?: string): Promise<SearchProvider> {
+  const userProviderName = userId ? await getPreferredUserSearchProvider(userId) : null;
+  const providerName = userProviderName ?? getConfiguredSearchProviderName();
+
+  if (providerName === "brave") {
+    const apiKey = userId ? await getUserSearchApiKey(userId, "brave") : null;
+    return createBraveProvider(apiKey ?? process.env.BRAVE_SEARCH_API_KEY);
+  }
+
+  if (providerName === "tavily") {
+    const apiKey = userId ? await getUserSearchApiKey(userId, "tavily") : null;
+    return createTavilyProvider(apiKey ?? process.env.TAVILY_API_KEY);
+  }
 
   throw new WebSearchConfigurationError(
-    "尚未配置全网搜索。请在 .env 中设置 SEARCH_PROVIDER=brave 和 BRAVE_SEARCH_API_KEY，或 SEARCH_PROVIDER=tavily 和 TAVILY_API_KEY。",
+    "尚未配置全网搜索。请在设置中保存 Brave 或 Tavily API key，或在 .env 中配置搜索服务。",
   );
 }
 
-function createBraveProvider(): SearchProvider {
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+function createBraveProvider(apiKey?: string | null): SearchProvider {
   if (!apiKey) {
     throw new WebSearchConfigurationError("缺少 BRAVE_SEARCH_API_KEY。");
   }
@@ -90,8 +104,7 @@ function createBraveProvider(): SearchProvider {
   };
 }
 
-function createTavilyProvider(): SearchProvider {
-  const apiKey = process.env.TAVILY_API_KEY;
+function createTavilyProvider(apiKey?: string | null): SearchProvider {
   if (!apiKey) {
     throw new WebSearchConfigurationError("缺少 TAVILY_API_KEY。");
   }

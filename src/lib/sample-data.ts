@@ -15,6 +15,7 @@ export const navItems = [
   { href: "/library", label: "资料" },
   { href: "/search", label: "搜索" },
   { href: "/obsidian", label: "Obsidian" },
+  { href: "/settings", label: "设置" },
 ];
 
 export const bibleBooks = [

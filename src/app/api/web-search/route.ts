@@ -17,6 +17,7 @@ export async function POST(request: Request) {
   try {
     const result = await searchWeb(query, {
       limit: Number.isInteger(limit) ? limit : 8,
+      userId: user.id,
     });
     return NextResponse.json(result);
   } catch (error) {
