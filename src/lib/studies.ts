@@ -1,5 +1,6 @@
 import type { Note, StudyProject } from "@prisma/client";
 import { createExcerpt } from "@/lib/notes";
+import { buildStudyWorkflowBody } from "@/lib/study-workflow";
 
 export type StudyProjectWithNote = StudyProject & {
   notes: Array<Pick<Note, "id" | "markdownBody" | "updatedAt">>;
@@ -53,19 +54,6 @@ tags:
 
 ${quotedVerses}
 
-## 观察
-
-- 待填写
-
-## 解释
-
-
-## 应用
-
-- 待填写
-
-## 问题
-
-- 待填写
+${buildStudyWorkflowBody()}
 `;
 }

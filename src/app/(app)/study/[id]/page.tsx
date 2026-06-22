@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Download, Save } from "lucide-react";
+import { CheckCircle2, Download, ListPlus, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
 import { resources, studyMarkdown } from "@/lib/sample-data";
+import {
+  ensureStudyWorkflowSections,
+  getStudyWorkflowStatus,
+  insertStudySnippet,
+} from "@/lib/study-workflow";
 import {
   downloadMarkdown,
   getStudySourceSnippets,
@@ -42,6 +47,9 @@ export default function StudyPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const wordCount = useMemo(() => body.replace(/\s/g, "").length, [body]);
+  const workflowStatus = useMemo(() => getStudyWorkflowStatus(body), [body]);
+  const completedSections = workflowStatus.filter((section) => section.filled).length;
+  const missingSections = workflowStatus.filter((section) => !section.exists);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,18 +121,13 @@ export default function StudyPage() {
   }
 
   function handleInsertSnippet(snippet: StudySourceSnippet) {
-    const markdownBlock = [
-      "",
-      `> ${snippet.reference}（${snippet.versionShortName}）`,
-      `> ${snippet.text}`,
-      "",
-      "观察：",
-      "- ",
-    ].join("\n");
-
-    setBody((current) => `${current.trimEnd()}\n${markdownBlock}`);
+    setBody((current) => insertStudySnippet(current, snippet));
     removeStudySourceSnippet(snippet.id);
     setSnippets(getStudySourceSnippets());
+  }
+
+  function handleCompleteWorkflow() {
+    setBody((current) => ensureStudyWorkflowSections(current));
   }
 
   return (
@@ -195,7 +198,7 @@ export default function StudyPage() {
             <div>
               <h2 className="font-semibold">Markdown 研读笔记</h2>
               <p className="mt-1 text-xs text-zinc-300">
-                支持 YAML、#标签 与 [[双链]]，方便进入 Obsidian。
+                {completedSections}/{workflowStatus.length} 个区块已有内容
               </p>
             </div>
             <span className="text-xs font-semibold text-zinc-300">
@@ -206,7 +209,42 @@ export default function StudyPage() {
         </Panel>
 
         <Panel className="p-4">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">主题标签</h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-[var(--muted)]">研读流程</h2>
+            <button
+              type="button"
+              onClick={handleCompleteWorkflow}
+              disabled={missingSections.length === 0}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--line)] bg-white px-2.5 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ListPlus size={14} />
+              补齐
+            </button>
+          </div>
+          <div className="space-y-2">
+            {workflowStatus.map((section) => (
+              <div
+                key={section.heading}
+                className="flex items-center justify-between gap-3 rounded-md border border-[var(--line)] px-3 py-2 text-sm"
+              >
+                <span className="font-semibold">{section.heading}</span>
+                <span
+                  className={
+                    section.filled
+                      ? "inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"
+                      : section.exists
+                        ? "text-xs font-semibold text-[var(--muted)]"
+                        : "text-xs font-semibold text-amber-700"
+                  }
+                >
+                  {section.filled ? <CheckCircle2 size={14} /> : null}
+                  {section.filled ? "已写" : section.exists ? "待写" : "缺少"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <h2 className="mb-3 mt-6 text-sm font-semibold text-[var(--muted)]">主题标签</h2>
           <div className="flex flex-wrap gap-2">
             {["救恩", "信心", "永生", "重生", "约翰福音"].map((tag) => (
               <Tag key={tag}>{tag}</Tag>
