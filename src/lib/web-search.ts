@@ -1,10 +1,11 @@
 import {
   getPreferredUserSearchProvider,
+  getUserGoogleSearchCredentials,
   getUserSearchApiKey,
   normalizeSearchApiProvider,
 } from "@/lib/user-api-keys";
 
-export type SearchProviderName = "brave" | "tavily";
+export type SearchProviderName = "brave" | "tavily" | "google";
 
 export type WebSearchResult = {
   id: string;
@@ -42,6 +43,7 @@ export function getConfiguredSearchProviderName(): SearchProviderName | null {
   if (requested) return requested;
   if (process.env.BRAVE_SEARCH_API_KEY) return "brave";
   if (process.env.TAVILY_API_KEY) return "tavily";
+  if (process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID) return "google";
   return null;
 }
 
@@ -59,8 +61,16 @@ async function getSearchProvider(userId?: string): Promise<SearchProvider> {
     return createTavilyProvider(apiKey ?? process.env.TAVILY_API_KEY);
   }
 
+  if (providerName === "google") {
+    const credentials = userId ? await getUserGoogleSearchCredentials(userId) : null;
+    return createGoogleProvider({
+      apiKey: credentials?.apiKey ?? process.env.GOOGLE_SEARCH_API_KEY,
+      searchEngineId: credentials?.searchEngineId ?? process.env.GOOGLE_SEARCH_ENGINE_ID,
+    });
+  }
+
   throw new WebSearchConfigurationError(
-    "尚未配置全网搜索。请在设置中保存 Brave 或 Tavily API key，或在 .env 中配置搜索服务。",
+    "尚未配置全网搜索。请在设置中保存 Brave、Tavily 或 Google API key，或在 .env 中配置搜索服务。",
   );
 }
 
@@ -141,6 +151,52 @@ function createTavilyProvider(apiKey?: string | null): SearchProvider {
         source: hostnameFromUrl(String(item.url ?? "")),
         snippet: cleanText(item.content, "暂无摘要。"),
         publishedAt: typeof item.published_date === "string" ? item.published_date : null,
+      })).filter((item: WebSearchResult) => item.url);
+    },
+  };
+}
+
+function createGoogleProvider({
+  apiKey,
+  searchEngineId,
+}: {
+  apiKey?: string | null;
+  searchEngineId?: string | null;
+}): SearchProvider {
+  if (!apiKey) {
+    throw new WebSearchConfigurationError("缺少 GOOGLE_SEARCH_API_KEY。");
+  }
+  if (!searchEngineId) {
+    throw new WebSearchConfigurationError("缺少 GOOGLE_SEARCH_ENGINE_ID。");
+  }
+
+  return {
+    name: "google",
+    async search(query, options) {
+      const url = new URL("https://www.googleapis.com/customsearch/v1");
+      url.searchParams.set("key", apiKey);
+      url.searchParams.set("cx", searchEngineId);
+      url.searchParams.set("q", query);
+      url.searchParams.set("num", String(Math.min(Math.max(options?.limit ?? 8, 1), 10)));
+
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Google Search 请求失败：${response.status}`);
+      }
+
+      const payload = await response.json();
+      const items = Array.isArray(payload.items) ? payload.items : [];
+
+      return items.map((item: Record<string, unknown>, index: number) => ({
+        id: stableResultId(String(item.link ?? ""), index),
+        title: cleanText(item.title, "未命名网页"),
+        url: String(item.link ?? ""),
+        source: hostnameFromUrl(String(item.link ?? "")),
+        snippet: cleanText(item.snippet, "暂无摘要。"),
+        publishedAt: null,
       })).filter((item: WebSearchResult) => item.url);
     },
   };

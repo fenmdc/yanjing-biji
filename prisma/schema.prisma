@@ -236,6 +236,7 @@ enum UserRole {
 enum ApiKeyProvider {
   BRAVE
   TAVILY
+  GOOGLE
 }
 
 enum Testament {

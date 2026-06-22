@@ -87,6 +87,13 @@ export function AppShell({
               </Link>
               <p className="truncate text-[11px] text-zinc-400">已登录</p>
             </div>
+            <Link
+              href="/settings"
+              className="flex size-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+              aria-label="打开设置"
+            >
+              <Settings size={17} />
+            </Link>
             <form action="/logout" method="post">
               <button
                 type="submit"

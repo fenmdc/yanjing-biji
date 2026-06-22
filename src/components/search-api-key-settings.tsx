@@ -4,7 +4,7 @@ import { useState } from "react";
 import { KeyRound, Save, Trash2 } from "lucide-react";
 
 type SearchKeyInfo = {
-  provider: "brave" | "tavily";
+  provider: "brave" | "tavily" | "google";
   keyPreview: string;
   updatedAt: string;
 };
@@ -12,12 +12,14 @@ type SearchKeyInfo = {
 const providerLabels: Record<SearchKeyInfo["provider"], string> = {
   brave: "Brave Search",
   tavily: "Tavily",
+  google: "Google Search",
 };
 
 export function SearchApiKeySettings({ initialKeys }: { initialKeys: SearchKeyInfo[] }) {
   const [keys, setKeys] = useState(initialKeys);
   const [provider, setProvider] = useState<SearchKeyInfo["provider"]>("brave");
   const [apiKey, setApiKey] = useState("");
+  const [searchEngineId, setSearchEngineId] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState("");
   const [error, setError] = useState("");
@@ -32,7 +34,7 @@ export function SearchApiKeySettings({ initialKeys }: { initialKeys: SearchKeyIn
     const response = await fetch("/api/settings/search-keys", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, apiKey }),
+      body: JSON.stringify({ provider, apiKey, searchEngineId }),
     });
     const payload = await response.json().catch(() => ({}));
     setSaving(false);
@@ -44,6 +46,7 @@ export function SearchApiKeySettings({ initialKeys }: { initialKeys: SearchKeyIn
 
     setKeys(payload.keys);
     setApiKey("");
+    setSearchEngineId("");
     setNotice(`${providerLabels[provider]} API key 已保存。`);
   }
 
@@ -92,6 +95,7 @@ export function SearchApiKeySettings({ initialKeys }: { initialKeys: SearchKeyIn
           >
             <option value="brave">Brave Search</option>
             <option value="tavily">Tavily</option>
+            <option value="google">Google Search</option>
           </select>
           <input
             value={apiKey}
@@ -101,6 +105,16 @@ export function SearchApiKeySettings({ initialKeys }: { initialKeys: SearchKeyIn
             type="password"
             autoComplete="off"
           />
+          {provider === "google" ? (
+            <input
+              value={searchEngineId}
+              onChange={(event) => setSearchEngineId(event.target.value)}
+              className="h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm"
+              placeholder="Google Programmable Search Engine ID"
+              type="text"
+              autoComplete="off"
+            />
+          ) : null}
           <button
             type="submit"
             disabled={saving}

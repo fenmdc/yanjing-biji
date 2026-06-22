@@ -21,13 +21,16 @@ export async function PUT(request: Request) {
   const payload = await request.json().catch(() => ({}));
   const provider = normalizeSearchApiProvider(payload.provider);
   const apiKey = typeof payload.apiKey === "string" ? payload.apiKey : "";
+  const searchEngineId = typeof payload.searchEngineId === "string"
+    ? payload.searchEngineId
+    : "";
 
   if (!provider) {
-    return NextResponse.json({ error: "请选择 Brave 或 Tavily。" }, { status: 400 });
+    return NextResponse.json({ error: "请选择 Brave、Tavily 或 Google。" }, { status: 400 });
   }
 
   try {
-    await saveUserSearchApiKey({ userId: user.id, provider, apiKey });
+    await saveUserSearchApiKey({ userId: user.id, provider, apiKey, searchEngineId });
     return NextResponse.json({ keys: await listUserSearchApiKeys(user.id) });
   } catch (error) {
     return NextResponse.json(
@@ -44,7 +47,7 @@ export async function DELETE(request: Request) {
   const url = new URL(request.url);
   const provider = normalizeSearchApiProvider(url.searchParams.get("provider"));
   if (!provider) {
-    return NextResponse.json({ error: "请选择 Brave 或 Tavily。" }, { status: 400 });
+    return NextResponse.json({ error: "请选择 Brave、Tavily 或 Google。" }, { status: 400 });
   }
 
   await deleteUserSearchApiKey(user.id, provider);
