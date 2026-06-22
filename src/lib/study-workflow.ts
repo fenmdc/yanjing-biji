@@ -69,11 +69,13 @@ export function insertStudyDocumentExcerpt(
     title: string;
     fileType: string;
     excerpt: string;
+    label?: string;
   },
 ) {
   const nextMarkdown = ensureStudyWorkflowSections(markdown);
+  const sourceLabel = document.label ? `${document.title} · ${document.label}` : document.title;
   const block = [
-    `- ${document.title}（${document.fileType}）`,
+    `- ${sourceLabel}（${document.fileType}）`,
     `  > ${document.excerpt}`,
   ].join("\n");
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FilePlus2, FileText, Search, Unlink } from "lucide-react";
+import { ChevronDown, ChevronUp, FilePlus2, FileText, Quote, Search, Unlink } from "lucide-react";
 import { Tag } from "@/components/ui";
 
 export type StudyDocumentItem = {
@@ -26,9 +26,11 @@ export type LinkedStudyDocument = {
 export function StudyDocumentsPanel({
   studyId,
   onInsertExcerpt,
+  onInsertSelection,
 }: {
   studyId: string;
   onInsertExcerpt: (document: StudyDocumentItem) => void;
+  onInsertSelection: (document: StudyDocumentItem, selectedText: string) => void;
 }) {
   const [linkedDocuments, setLinkedDocuments] = useState<LinkedStudyDocument[]>([]);
   const [candidates, setCandidates] = useState<StudyDocumentItem[]>([]);
@@ -144,6 +146,7 @@ export function StudyDocumentsPanel({
               actionIcon={<FileText size={14} />}
               disabled={busyId === item.document.id}
               onAction={() => onInsertExcerpt(item.document)}
+              onInsertSelection={onInsertSelection}
               secondaryAction={{
                 label: "取消",
                 icon: <Unlink size={14} />,
@@ -202,18 +205,40 @@ function DocumentCard({
   disabled,
   onAction,
   secondaryAction,
+  onInsertSelection,
 }: {
   document: StudyDocumentItem;
   actionLabel: string;
   actionIcon: React.ReactNode;
   disabled?: boolean;
   onAction: () => void;
+  onInsertSelection?: (document: StudyDocumentItem, selectedText: string) => void;
   secondaryAction?: {
     label: string;
     icon: React.ReactNode;
     onClick: () => void;
   };
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const canSelectExcerpt = Boolean(onInsertSelection);
+  const documentText = document.extractedText || document.excerpt || "";
+
+  function handleSelectionCapture() {
+    const selection = window.getSelection()?.toString().trim() ?? "";
+    setSelectedText(selection);
+  }
+
+  function handleToggleExpanded() {
+    setExpanded((current) => !current);
+    setSelectedText("");
+  }
+
+  function handleInsertSelectedText() {
+    if (!onInsertSelection) return;
+    onInsertSelection(document, selectedText);
+  }
+
   return (
     <div className="rounded-md border border-[var(--line)] bg-[var(--background)] p-3">
       <Link
@@ -241,6 +266,16 @@ function DocumentCard({
           {actionIcon}
           {actionLabel}
         </button>
+        {canSelectExcerpt ? (
+          <button
+            type="button"
+            onClick={handleToggleExpanded}
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--line)] bg-white px-2.5 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--foreground)] hover:bg-[var(--panel-soft)]"
+          >
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            正文
+          </button>
+        ) : null}
         {secondaryAction ? (
           <button
             type="button"
@@ -253,6 +288,32 @@ function DocumentCard({
           </button>
         ) : null}
       </div>
+      {expanded && canSelectExcerpt ? (
+        <div className="mt-3 rounded-md border border-[var(--line)] bg-white">
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2">
+            <span className="text-xs font-semibold text-[var(--muted)]">
+              {selectedText ? `已选 ${selectedText.length} 字` : "选中正文片段"}
+            </span>
+            <button
+              type="button"
+              onClick={handleInsertSelectedText}
+              disabled={!selectedText || !documentText}
+              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md bg-[var(--foreground)] px-2.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Quote size={13} />
+              摘录选中
+            </button>
+          </div>
+          <div
+            onMouseUp={handleSelectionCapture}
+            onKeyUp={handleSelectionCapture}
+            className="max-h-56 overflow-auto whitespace-pre-wrap p-3 text-xs leading-6 text-[var(--foreground)]"
+            tabIndex={0}
+          >
+            {documentText || "这份资料还没有正文。"}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

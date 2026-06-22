@@ -152,6 +152,22 @@ export default function StudyPage() {
     setError("");
   }
 
+  function handleInsertDocumentSelection(document: StudyDocumentItem, selectedText: string) {
+    const excerpt = selectedText.trim();
+    if (!excerpt) {
+      setError("请先在资料正文中选中一段文字。");
+      return;
+    }
+
+    setBody((current) => insertStudyDocumentExcerpt(current, {
+      title: document.title,
+      fileType: document.fileType,
+      excerpt,
+      label: "选中片段",
+    }));
+    setError("");
+  }
+
   return (
     <div>
       <PageHeader
@@ -290,6 +306,7 @@ export default function StudyPage() {
               <StudyDocumentsPanel
                 studyId={study.id}
                 onInsertExcerpt={handleInsertDocumentExcerpt}
+                onInsertSelection={handleInsertDocumentSelection}
               />
             ) : (
               <div>
