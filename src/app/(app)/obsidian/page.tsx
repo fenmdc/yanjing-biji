@@ -1,5 +1,6 @@
 "use client";
 
+import { BackupPanel } from "@/components/backup-panel";
 import { ObsidianExportButton } from "@/components/obsidian-export-button";
 import { ObsidianImportPanel } from "@/components/obsidian-import-panel";
 import { PageHeader, Panel } from "@/components/ui";
@@ -56,6 +57,17 @@ export default function ObsidianPage() {
           <ObsidianImportPanel />
         </Panel>
       </div>
+
+      <Panel className="mt-5 p-5">
+        <h2 className="text-lg font-semibold">数据安全</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          导出当前账户的研读项目、笔记、资料、标签与双链。恢复会合并到当前账户，不会清空已有数据。
+        </p>
+
+        <div className="mt-5">
+          <BackupPanel />
+        </div>
+      </Panel>
     </div>
   );
 }
