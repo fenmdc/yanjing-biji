@@ -63,6 +63,23 @@ export function insertStudySnippet(
   return insertIntoSection(nextMarkdown, "资料摘录", block);
 }
 
+export function insertStudyDocumentExcerpt(
+  markdown: string,
+  document: {
+    title: string;
+    fileType: string;
+    excerpt: string;
+  },
+) {
+  const nextMarkdown = ensureStudyWorkflowSections(markdown);
+  const block = [
+    `- ${document.title}（${document.fileType}）`,
+    `  > ${document.excerpt}`,
+  ].join("\n");
+
+  return insertIntoSection(nextMarkdown, "资料摘录", block);
+}
+
 function formatSection(heading: string, placeholder: string) {
   return `## ${heading}\n\n${placeholder}`.trimEnd();
 }

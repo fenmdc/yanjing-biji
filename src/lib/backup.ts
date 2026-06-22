@@ -63,6 +63,14 @@ type BackupDocument = {
   tags: string[];
 };
 
+type BackupStudyDocument = {
+  id: string;
+  studyProjectId: string;
+  documentId: string;
+  note: string | null;
+  createdAt: string;
+};
+
 type BackupNoteLink = {
   id: string;
   fromNoteId: string;
@@ -85,6 +93,7 @@ export type BackupFile = {
     studies: BackupStudy[];
     notes: BackupNote[];
     documents: BackupDocument[];
+    studyDocuments: BackupStudyDocument[];
     noteLinks: BackupNoteLink[];
   };
 };
@@ -95,6 +104,7 @@ export type RestoreResult = {
     studies: number;
     notes: number;
     documents: number;
+    studyDocuments: number;
     noteLinks: number;
   };
   skipped: {
@@ -102,6 +112,7 @@ export type RestoreResult = {
     studies: number;
     notes: number;
     documents: number;
+    studyDocuments: number;
     noteLinks: number;
   };
 };
@@ -125,6 +136,7 @@ export async function createBackupZip(userId: string) {
 - 研读项目：${backup.data.studies.length}
 - 笔记：${backup.data.notes.length}
 - 资料：${backup.data.documents.length}
+- 研读资料关联：${backup.data.studyDocuments.length}
 
 恢复方式：登录研经笔记后，在 Obsidian / 数据安全页面上传此 zip 文件。
 `,
@@ -156,7 +168,7 @@ async function createBackupFile(userId: string): Promise<BackupFile> {
     select: { email: true, name: true },
   });
 
-  const [tags, studies, notes, documents, noteLinks] = await Promise.all([
+  const [tags, studies, notes, documents, studyDocuments, noteLinks] = await Promise.all([
     prisma.tag.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
@@ -178,6 +190,13 @@ async function createBackupFile(userId: string): Promise<BackupFile> {
       include: {
         tags: { include: { tag: true } },
       },
+    }),
+    prisma.studyDocument.findMany({
+      where: {
+        studyProject: { userId },
+        document: { userId },
+      },
+      orderBy: { createdAt: "asc" },
     }),
     prisma.noteLink.findMany({
       where: { fromNote: { userId } },
@@ -237,6 +256,13 @@ async function createBackupFile(userId: string): Promise<BackupFile> {
         updatedAt: document.updatedAt.toISOString(),
         tags: document.tags.map((item) => item.tag.name),
       })),
+      studyDocuments: studyDocuments.map((link) => ({
+        id: link.id,
+        studyProjectId: link.studyProjectId,
+        documentId: link.documentId,
+        note: link.note,
+        createdAt: link.createdAt.toISOString(),
+      })),
       noteLinks: noteLinks.map((link) => ({
         id: link.id,
         fromNoteId: link.fromNoteId,
@@ -251,8 +277,8 @@ async function createBackupFile(userId: string): Promise<BackupFile> {
 
 async function restoreBackupFile(userId: string, backup: BackupFile): Promise<RestoreResult> {
   const result: RestoreResult = {
-    created: { tags: 0, studies: 0, notes: 0, documents: 0, noteLinks: 0 },
-    skipped: { tags: 0, studies: 0, notes: 0, documents: 0, noteLinks: 0 },
+    created: { tags: 0, studies: 0, notes: 0, documents: 0, studyDocuments: 0, noteLinks: 0 },
+    skipped: { tags: 0, studies: 0, notes: 0, documents: 0, studyDocuments: 0, noteLinks: 0 },
   };
 
   await prisma.$transaction(async (tx) => {
@@ -362,6 +388,7 @@ async function restoreBackupFile(userId: string, backup: BackupFile): Promise<Re
       result.created.notes += 1;
     }
 
+    const documentIdMap = new Map<string, string>();
     for (const document of backup.data.documents) {
       const existing = await tx.document.findFirst({
         where: {
@@ -373,11 +400,12 @@ async function restoreBackupFile(userId: string, backup: BackupFile): Promise<Re
       });
 
       if (existing) {
+        documentIdMap.set(document.id, existing.id);
         result.skipped.documents += 1;
         continue;
       }
 
-      await tx.document.create({
+      const created = await tx.document.create({
         data: {
           userId,
           title: document.title,
@@ -392,8 +420,45 @@ async function restoreBackupFile(userId: string, backup: BackupFile): Promise<Re
           updatedAt: new Date(document.updatedAt),
           tags: createTagLinks(userId, document.tags, tagSlugByName),
         },
+        select: { id: true },
       });
+      documentIdMap.set(document.id, created.id);
       result.created.documents += 1;
+    }
+
+    for (const link of backup.data.studyDocuments) {
+      const studyProjectId = studyIdMap.get(link.studyProjectId);
+      const documentId = documentIdMap.get(link.documentId);
+
+      if (!studyProjectId || !documentId) {
+        result.skipped.studyDocuments += 1;
+        continue;
+      }
+
+      const existing = await tx.studyDocument.findUnique({
+        where: {
+          studyProjectId_documentId: {
+            studyProjectId,
+            documentId,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        result.skipped.studyDocuments += 1;
+        continue;
+      }
+
+      await tx.studyDocument.create({
+        data: {
+          studyProjectId,
+          documentId,
+          note: link.note,
+          createdAt: new Date(link.createdAt),
+        },
+      });
+      result.created.studyDocuments += 1;
     }
 
     for (const link of backup.data.noteLinks) {
@@ -470,6 +535,7 @@ function parseBackupFile(value: unknown): BackupFile {
       studies: arrayOf(backup.data.studies).map(normalizeStudy),
       notes: arrayOf(backup.data.notes).map(normalizeNote),
       documents: arrayOf(backup.data.documents).map(normalizeDocument),
+      studyDocuments: arrayOf(backup.data.studyDocuments).map(normalizeStudyDocument),
       noteLinks: arrayOf(backup.data.noteLinks).map(normalizeNoteLink),
     },
   };
@@ -536,6 +602,17 @@ function normalizeDocument(value: unknown): BackupDocument {
     createdAt: stringOrNow(item.createdAt),
     updatedAt: stringOrNow(item.updatedAt),
     tags: arrayOf(item.tags).map((tag) => stringOrDefault(tag, "")).filter(Boolean),
+  };
+}
+
+function normalizeStudyDocument(value: unknown): BackupStudyDocument {
+  const item = value as Partial<BackupStudyDocument>;
+  return {
+    id: stringOrDefault(item.id, crypto.randomUUID()),
+    studyProjectId: stringOrDefault(item.studyProjectId, ""),
+    documentId: stringOrDefault(item.documentId, ""),
+    note: nullableString(item.note),
+    createdAt: stringOrNow(item.createdAt),
   };
 }
 

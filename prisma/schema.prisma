@@ -77,6 +77,7 @@ model StudyProject {
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   passages     StudyPassage[]
   notes        Note[]
+  documents    StudyDocument[]
 
   @@index([userId, updatedAt])
 }
@@ -170,8 +171,22 @@ model Document {
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   tags             DocumentTag[]
   passages         DocumentPassage[]
+  studies          StudyDocument[]
 
   @@index([userId, updatedAt])
+}
+
+model StudyDocument {
+  id             String       @id @default(cuid())
+  studyProjectId String
+  documentId     String
+  note           String?
+  createdAt      DateTime     @default(now())
+  studyProject   StudyProject @relation(fields: [studyProjectId], references: [id], onDelete: Cascade)
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([studyProjectId, documentId])
+  @@index([documentId])
 }
 
 model DocumentTag {

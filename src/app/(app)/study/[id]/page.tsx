@@ -6,9 +6,14 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Download, ListPlus, Save } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PageHeader, Panel, Tag } from "@/components/ui";
-import { resources, studyMarkdown } from "@/lib/sample-data";
+import {
+  StudyDocumentsPanel,
+  type StudyDocumentItem,
+} from "@/components/study-documents-panel";
+import { studyMarkdown } from "@/lib/sample-data";
 import {
   ensureStudyWorkflowSections,
+  insertStudyDocumentExcerpt,
   getStudyWorkflowStatus,
   insertStudySnippet,
 } from "@/lib/study-workflow";
@@ -42,6 +47,7 @@ export default function StudyPage() {
     passageLabel: "经文研读",
   });
   const [context, setContext] = useState<StudyContext>(null);
+  const [documentLinksEnabled, setDocumentLinksEnabled] = useState(false);
   const [savedAt, setSavedAt] = useState("尚未保存");
   const [snippets, setSnippets] = useState<StudySourceSnippet[]>([]);
   const [saving, setSaving] = useState(false);
@@ -71,6 +77,7 @@ export default function StudyPage() {
           });
         }
         setContext(payload.context ?? null);
+        setDocumentLinksEnabled(Boolean(payload.documentLinksEnabled));
         setBody(payload.markdown);
         if (payload.note?.updatedAt) {
           setSavedAt(new Date(payload.note.updatedAt).toLocaleTimeString("zh-CN"));
@@ -128,6 +135,21 @@ export default function StudyPage() {
 
   function handleCompleteWorkflow() {
     setBody((current) => ensureStudyWorkflowSections(current));
+  }
+
+  function handleInsertDocumentExcerpt(document: StudyDocumentItem) {
+    const excerpt = document.excerpt || document.extractedText.slice(0, 240).trim();
+    if (!excerpt) {
+      setError("这份资料还没有可摘录的正文。");
+      return;
+    }
+
+    setBody((current) => insertStudyDocumentExcerpt(current, {
+      title: document.title,
+      fileType: document.fileType,
+      excerpt,
+    }));
+    setError("");
   }
 
   return (
@@ -263,14 +285,20 @@ export default function StudyPage() {
             ))}
           </div>
 
-          <h2 className="mb-3 mt-6 text-sm font-semibold text-[var(--muted)]">相关资料</h2>
-          <div className="space-y-3">
-            {resources.slice(0, 2).map((resource) => (
-              <div key={resource.title} className="rounded-md bg-[var(--background)] p-3">
-                <p className="text-sm font-semibold">{resource.title}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">{resource.passage}</p>
+          <div className="mt-6">
+            {documentLinksEnabled ? (
+              <StudyDocumentsPanel
+                studyId={study.id}
+                onInsertExcerpt={handleInsertDocumentExcerpt}
+              />
+            ) : (
+              <div>
+                <h2 className="mb-3 text-sm font-semibold text-[var(--muted)]">关联资料</h2>
+                <div className="rounded-md border border-dashed border-[var(--line)] p-3 text-xs leading-5 text-[var(--muted)]">
+                  从圣经页新建研读项目后，可以把资料库内容关联到当前研读。
+                </div>
               </div>
-            ))}
+            )}
           </div>
 
           <h2 className="mb-3 mt-6 text-sm font-semibold text-[var(--muted)]">研读篮</h2>

@@ -31,6 +31,7 @@ export async function GET(
     note: primaryNote ? noteToClient(primaryNote) : null,
     markdown: primaryNote?.markdownBody ?? studyMarkdown,
     context,
+    documentLinksEnabled: true,
   });
 }
 
@@ -169,6 +170,7 @@ async function getLegacyStudy(userId: string, id: string) {
     },
     note: note ? noteToClient(note) : null,
     markdown: note?.markdownBody ?? studyMarkdown,
+    documentLinksEnabled: false,
     context: getStudyContext({
       versionCode: "chinese_union_simp",
       bookCode: "John",

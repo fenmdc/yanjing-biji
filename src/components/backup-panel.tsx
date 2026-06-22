@@ -14,6 +14,7 @@ const labels: Record<string, string> = {
   studies: "研读项目",
   notes: "笔记",
   documents: "资料",
+  studyDocuments: "研读资料",
   noteLinks: "双链",
 };
 
@@ -149,7 +150,7 @@ export function BackupPanel() {
       {result ? (
         <div className="rounded-md bg-[var(--accent-soft)] p-4 text-sm text-[var(--accent-strong)] lg:col-span-2">
           <p className="font-semibold">恢复完成</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             {Object.entries(labels).map(([key, label]) => (
               <div key={key} className="rounded-md bg-white/70 p-3">
                 <p className="font-semibold">{label}</p>
